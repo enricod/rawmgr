@@ -3,19 +3,41 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
+	"strings"
 )
+
+type inputImage struct {
+	make string
+}
 
 const RawmgrVersion = "0.1"
 
 func xtransInterpolate() {
 
 }
-func fujiXtransRead(bytes []byte) {
-	fmt.Printf("Hello, world.\n")
+func fujiXtransRead(inputFile *os.File) {
+
 }
 
+// identify identifies the file maker
+func identify(inputFile *os.File) inputImage {
+
+	result := inputImage{make: "UNDEF"}
+
+	head := make([]byte, 32)
+	n1, err := inputFile.Read(head)
+	check(err)
+	fmt.Printf("%d bytes : %s\n", n1, string(head))
+
+	if strings.HasPrefix(string(head), "FUJIFILM") {
+		result.make = "FUJIFILM"
+	}
+
+	return result
+
+}
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -27,9 +49,11 @@ func main() {
 	flag.Parse()
 	log.Println("reading file " + *rawfile)
 
-	dat, err := ioutil.ReadFile(*rawfile)
+	inputFile, err := os.Open(*rawfile)
 	check(err)
 
-	fujiXtransRead(dat)
+	inputImage := identify(inputFile)
+
+	fmt.Printf("Make: %s\n", inputImage.make)
 	//
 }
