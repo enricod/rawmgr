@@ -125,10 +125,17 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 	for i := 0; i < int(entries); i++ {
 		tiffInfo, start = GetTiff(f, order, start)
 		switch tiffInfo.Tag {
-		case 5:
-			// carica width
+		case 61440:
+			// FUJI HS10 table
+			parseTiffIfd(f, order, filePos, base)
+			/*
+			   /* Fuji HS10 table
+			   fseek (ifp, get4()+base, SEEK_SET);
+			   parse_tiff_ifd (base);
+			   break;
+			*/
 		default:
-			log.Printf("TIFF_PARSE_IFD base=%d, tag %d", base, tiffInfo.Tag)
+			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
 		}
 	}
 
