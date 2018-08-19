@@ -22,6 +22,28 @@ func GetUint32(f *os.File, offset int64) (uint32, int64) {
 	return value, offset + 4
 }
 
+func GetUint16WithOrder(f *os.File, order uint16, offset int64) (uint16, int64) {
+	var value uint16
+	if order == 0x4949 {
+		// little endian
+		value = binary.LittleEndian.Uint16(readFromFileBytes(f, offset, 2))
+	} else {
+		value = binary.BigEndian.Uint16(readFromFileBytes(f, offset, 2))
+	}
+	return value, offset + 2
+}
+
+func GetUint32WithOrder(f *os.File, order uint16, offset int64) (uint32, int64) {
+	var value uint32
+	if order == 0x4949 {
+		// little endian
+		value = binary.LittleEndian.Uint32(readFromFileBytes(f, offset, 4))
+	} else {
+		value = binary.BigEndian.Uint32(readFromFileBytes(f, offset, 4))
+	}
+	return value, offset + 4
+}
+
 func Get1Byte(f *os.File, offset int64) (uint16, int64) {
 	mybyte := readFromFileBytes(f, offset, 1)[0]
 	return uint16(mybyte), offset + 1

@@ -25,10 +25,6 @@ func fujiXtransRead(inputFile *os.File) {
 
 }
 
-func parseTiff(f *os.File, offset int64) {
-
-}
-
 // identify identifies the file maker
 func identify(inputFile *os.File) imageInfo {
 	result := imageInfo{make: "UNDEF"}
@@ -50,8 +46,7 @@ func identify(inputFile *os.File) imageInfo {
 		fuji.ParseFuji(inputFile, int64(startParse))
 
 		dataOffset, _ := common.GetUint32(inputFile, 100)
-		log.Printf("dataOffset=%d", dataOffset)
-		parseTiff(inputFile, int64(dataOffset))
+		common.ParseTiff(inputFile, int64(dataOffset))
 
 	}
 

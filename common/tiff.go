@@ -1,6 +1,7 @@
 package common
 
 import (
+	"log"
 	"os"
 )
 
@@ -33,21 +34,22 @@ type TiffInfo struct {
     *tag  = get2();
     *type = get2();
 	*len  = get4();
-    *save = ftell(ifp) + 4;s
+    *save = ftell(ifp) + 4;
     if (*len * ("11124811248484"[*type < 14 ? *type:0]-'0') > 4)
 		fseek (ifp, get4()+base, SEEK_SET);
 
 */
 
 // GetTiff  legge da file info su tiff
-func GetTiff(f *os.File, base int64) (TiffInfo, int64) {
+func GetTiff(f *os.File, order uint16, base int64) (TiffInfo, int64) {
 
-	var start, nextPos int64
+	var start, nextPos, save int64
 	var tag, typ uint16
 	var len uint32
-	tag, start = GetUint16(f, base)
-	typ, start = GetUint16(f, start)
-	len, start = GetUint32(f, start)
+	tag, start = GetUint16WithOrder(f, order, base)
+	typ, start = GetUint16WithOrder(f, order, start)
+	len, start = GetUint32WithOrder(f, order, start)
+	save = start + 4
 
 	var idx uint16
 	if typ < 14 {
@@ -65,11 +67,11 @@ func GetTiff(f *os.File, base int64) (TiffInfo, int64) {
 		nextPos = base
 	}
 
-	return TiffInfo{Tag: tag, Type: typ, Save: base + 4}, nextPos
+	return TiffInfo{Tag: tag, Type: typ, Save: save}, nextPos
 }
 
-// ParseTIFF elaborazione TIFF?
-func ParseTIFF(f *os.File, base int64) {
+// ParseTiff elaborazione TIFF?
+func ParseTiff(f *os.File, base int64) {
 	/*
 		int CLASS parse_tiff (int base) {
 		    int doff;
@@ -94,10 +96,9 @@ func ParseTIFF(f *os.File, base int64) {
 
 	if order == 0x4949 || order == 0x4d4d {
 		_, start = GetUint16(f, start)
-		doff, start = GetUint32(f, start)
+		doff, start = GetUint32WithOrder(f, order, start)
 		for doff > 0 {
-			start = start + int64(doff)
-			if parseTiffIfd(base) {
+			if parseTiffIfd(f, order, base+int64(doff), base) {
 				return
 			}
 
@@ -108,7 +109,28 @@ func ParseTIFF(f *os.File, base int64) {
 
 }
 
-// parse_tiff_ifd
-func parseTiffIfd(base int64) bool {
+// parseTiffIfd
+func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
+
+	var start int64
+	var entries uint16
+	var tiffInfo TiffInfo
+
+	entries, start = GetUint16WithOrder(f, order, filePos)
+
+	if entries > 512 {
+		return true
+	}
+
+	for i := 0; i < int(entries); i++ {
+		tiffInfo, start = GetTiff(f, order, start)
+		switch tiffInfo.Tag {
+		case 5:
+			// carica width
+		default:
+			log.Printf("TIFF_PARSE_IFD base=%d, tag %d", base, tiffInfo.Tag)
+		}
+	}
+
 	return false
 }
