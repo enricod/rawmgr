@@ -86,7 +86,7 @@ func GetTiff(f *os.File, order uint16, base int64) (TiffInfo, int64) {
 }
 
 // ParseTiff elaborazione TIFF?
-func ParseTiff(f *os.File, base int64) {
+func ParseTiff(f *os.File, base int64, tiffIfdArray []TiffIfd) []TiffIfd {
 	/*
 		int CLASS parse_tiff (int base) {
 		    int doff;
@@ -107,43 +107,42 @@ func ParseTiff(f *os.File, base int64) {
 	var doff uint32
 	var start int64
 
+	ret2 := make([]TiffIfd, len(tiffIfdArray))
+	copy(ret2, tiffIfdArray)
+
+	var ret bool
 	order, start = GetUint16(f, base)
 
 	if order == 0x4949 || order == 0x4d4d {
 		_, start = GetUint16(f, start)
 		doff, start = GetUint32WithOrder(f, order, start)
 		for doff > 0 {
-			if parseTiffIfd(f, order, base+int64(doff), base) {
-				return
+			ret, ret2 = parseTiffIfd(f, order, base+int64(doff), base, ret2)
+			if ret == true {
+				return ret2
 			}
 			doff, start = GetUint32(f, start)
 		}
 	}
-}
-
-func initTiffIfdArray() [10]TiffIfd {
-	var result [10]TiffIfd
-	for i := 0; i < 10; i++ {
-		result[i] = TiffIfd{Width: -1, Height: -1}
-	}
-	return result
+	return ret2
 }
 
 // parseTiffIfd
-func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
+func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdArray []TiffIfd) (bool, []TiffIfd) {
 
 	var start int64
 	var entries uint16
 	var tiffInfo TiffInfo
 
-	var tiffIfdArray = initTiffIfdArray()
-
 	log.Printf("TIFF_PARSE_IFD  filePos=%d, base=%d", filePos, base)
 	entries, start = GetUint16WithOrder(f, order, filePos)
 	log.Printf("TIFF_PARSE_IFD  entries=%d, start=%d", entries, start)
 
+	var tiffIfdNew = TiffIfd{}
+	tiffIfdArray2 := append(tiffIfdArray, tiffIfdNew)
+
 	if entries > 512 {
-		return true
+		return false, tiffIfdArray
 	}
 
 	for i := 0; i < int(entries); i++ {
@@ -152,7 +151,7 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 		case 61440: // Fuji HS10 table
 			var v uint32
 			v, start = GetUint32WithOrder(f, order, start)
-			parseTiffIfd(f, order, int64(v)+base, base)
+			parseTiffIfd(f, order, int64(v)+base, base, tiffIfdArray)
 			/*
 			   fseek (ifp, get4()+base, SEEK_SET);
 			   parse_tiff_ifd (base);
@@ -167,12 +166,12 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 
 			// FIXME eliminare indice 1 hardcoded
 
-			tiffIfdArray[1].Width, start = GetInt(f, order, start, tiffInfo.Typ)
+			tiffIfdArray[len(tiffIfdArray)-1].Width, start = GetInt(f, order, start, tiffInfo.Typ)
 
 		default:
 			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
 		}
 	}
 
-	return false
+	return false, tiffIfdArray2
 }

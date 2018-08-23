@@ -46,7 +46,10 @@ func identify(inputFile *os.File) imageInfo {
 		fuji.ParseFuji(inputFile, int64(startParse))
 
 		dataOffset, _ := common.GetUint32(inputFile, 100)
-		common.ParseTiff(inputFile, int64(dataOffset))
+
+		var tiffIfsArray []common.TiffIfd
+		tiffIfsArray = make([]common.TiffIfd, 10)
+		common.ParseTiff(inputFile, int64(dataOffset), tiffIfsArray)
 
 	}
 
