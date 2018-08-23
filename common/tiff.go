@@ -33,13 +33,13 @@ type TiffInfo struct {
 type TiffIfd struct {
 	Width      int64
 	Height     int64
-	Bps        int
+	Bps        int64 // bites per second?
 	Comp       int
 	Phint      int
 	Offset     int
 	Flip       int
 	Samples    int
-	Bytes      int
+	Bytes      uint32
 	TileWidth  int
 	TileLength int
 	Shutter    float32
@@ -127,12 +127,49 @@ func ParseTiff(f *os.File, base int64, tiffIfdArray []TiffIfd) []TiffIfd {
 	return ret2
 }
 
+// MinInt64 min between two numbers
+func MinInt64(a int64, b int64) int64 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}
+
+// MaxInt64 max between two numbers
+func MaxInt64(a int64, b int64) int64 {
+	return MinInt64(b, a)
+}
+
+func parseMakernote(f *os.File, base int64) {
+
+}
+func parseExif(f *os.File, order uint16, filePos int64, base int64) {
+
+	var start int64
+	var entries uint16
+	var tiffInfo TiffInfo
+
+	entries, start = GetUint16WithOrder(f, order, filePos)
+	log.Printf("TIFF_PARSE_IFD  entries=%d, start=%d", entries, start)
+
+	for i := 0; i < int(entries); i++ {
+
+		tiffInfo, start = GetTiff(f, order, start)
+		switch tiffInfo.Tag {
+		case 37500:
+			parseMakernote(f, base)
+		}
+	}
+}
+
 // parseTiffIfd
 func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdArray []TiffIfd) (bool, []TiffIfd) {
 
 	var start int64
 	var entries uint16
 	var tiffInfo TiffInfo
+	var tiffBps int64
 
 	log.Printf("TIFF_PARSE_IFD  filePos=%d, base=%d", filePos, base)
 	entries, start = GetUint16WithOrder(f, order, filePos)
@@ -148,6 +185,14 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdAr
 	for i := 0; i < int(entries); i++ {
 		tiffInfo, start = GetTiff(f, order, start)
 		switch tiffInfo.Tag {
+		case 34665: /* EXIF tag */
+			var v uint32
+			v, start = GetUint32WithOrder(f, order, start)
+			parseExif(f, order, int64(v)+base, base)
+			// fseek (ifp, get4()+base, SEEK_SET);
+			// parse_exif (base);
+			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
+
 		case 61440: // Fuji HS10 table
 			var v uint32
 			v, start = GetUint32WithOrder(f, order, start)
@@ -170,8 +215,29 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdAr
 
 		case 61442: // image height
 			tiffIfdNew.Height, start = GetInt(f, order, start, tiffInfo.Typ)
+		case 258:
+			fallthrough
+		case 61443:
+			/*
+				tiff_ifd[ifd].samples = len & 7;
+				if ((tiff_ifd[ifd].bps = getint(type)) > 32)
+					tiff_ifd[ifd].bps = 8;
+				if (tiff_bps < tiff_ifd[ifd].bps)
+					tiff_bps = tiff_ifd[ifd].bps;
+			*/
+			tiffIfdNew.Samples = 1 & 7
+			tiffIfdNew.Bps, start = GetInt(f, order, start, tiffInfo.Typ)
+			if tiffIfdNew.Bps > 32 {
+				tiffIfdNew.Bps = 8
+			}
+			tiffBps = MaxInt64(tiffIfdNew.Bps, tiffBps)
+
+		case 61448:
+			//tiff_ifd[ifd].bytes = get4();
+			tiffIfdNew.Bytes, start = GetUint32WithOrder(f, order, start)
+
 		default:
-			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
+			// log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
 		}
 		start = tiffInfo.Save
 	}
