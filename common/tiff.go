@@ -116,12 +116,9 @@ func ParseTiff(f *os.File, base int64) {
 			if parseTiffIfd(f, order, base+int64(doff), base) {
 				return
 			}
-
 			doff, start = GetUint32(f, start)
 		}
-
 	}
-
 }
 
 func initTiffIfdArray() [10]TiffIfd {
@@ -157,7 +154,6 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 			v, start = GetUint32WithOrder(f, order, start)
 			parseTiffIfd(f, order, int64(v)+base, base)
 			/*
-			   /*
 			   fseek (ifp, get4()+base, SEEK_SET);
 			   parse_tiff_ifd (base);
 			   break;
