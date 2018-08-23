@@ -25,9 +25,24 @@ import (
 
 type TiffInfo struct {
 	Tag  uint16
-	Type uint16
+	Typ  uint16
 	Len  uint32
 	Save int64
+}
+
+type TiffIfd struct {
+	Width      int64
+	Height     int
+	Bps        int
+	Comp       int
+	Phint      int
+	Offset     int
+	Flip       int
+	Samples    int
+	Bytes      int
+	TileWidth  int
+	TileLength int
+	Shutter    float32
 }
 
 /*
@@ -61,13 +76,13 @@ func GetTiff(f *os.File, order uint16, base int64) (TiffInfo, int64) {
 
 	if len*uint32(c) > 4 {
 		var v uint32
-		v, start = GetUint32(f, start)
+		v, _ = GetUint32(f, start)
 		nextPos = base + int64(v)
 	} else {
-		nextPos = base
+		nextPos = start
 	}
 
-	return TiffInfo{Tag: tag, Type: typ, Save: save}, nextPos
+	return TiffInfo{Tag: tag, Typ: typ, Save: save}, nextPos
 }
 
 // ParseTiff elaborazione TIFF?
@@ -109,6 +124,14 @@ func ParseTiff(f *os.File, base int64) {
 
 }
 
+func initTiffIfdArray() [10]TiffIfd {
+	var result [10]TiffIfd
+	for i := 0; i < 10; i++ {
+		result[i] = TiffIfd{Width: -1, Height: -1}
+	}
+	return result
+}
+
 // parseTiffIfd
 func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 
@@ -116,7 +139,11 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 	var entries uint16
 	var tiffInfo TiffInfo
 
+	var tiffIfdArray = initTiffIfdArray()
+
+	log.Printf("TIFF_PARSE_IFD  filePos=%d, base=%d", filePos, base)
 	entries, start = GetUint16WithOrder(f, order, filePos)
+	log.Printf("TIFF_PARSE_IFD  entries=%d, start=%d", entries, start)
 
 	if entries > 512 {
 		return true
@@ -125,15 +152,27 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64) bool {
 	for i := 0; i < int(entries); i++ {
 		tiffInfo, start = GetTiff(f, order, start)
 		switch tiffInfo.Tag {
-		case 61440:
-			// FUJI HS10 table
-			parseTiffIfd(f, order, filePos, base)
+		case 61440: // Fuji HS10 table
+			var v uint32
+			v, start = GetUint32WithOrder(f, order, start)
+			parseTiffIfd(f, order, int64(v)+base, base)
 			/*
-			   /* Fuji HS10 table
+			   /*
 			   fseek (ifp, get4()+base, SEEK_SET);
 			   parse_tiff_ifd (base);
 			   break;
 			*/
+		case 61441: // image width
+			/*
+				case 61441:	/* ImageWidth
+				tiff_ifd[ifd].width = getint(type);
+				break;
+			*/
+
+			// FIXME eliminare indice 1 hardcoded
+
+			tiffIfdArray[1].Width, start = GetInt(f, order, start, tiffInfo.Typ)
+
 		default:
 			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
 		}

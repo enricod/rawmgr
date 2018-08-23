@@ -49,6 +49,21 @@ func Get1Byte(f *os.File, offset int64) (uint16, int64) {
 	return uint16(mybyte), offset + 1
 }
 
+// GetInt
+func GetInt(f *os.File, order uint16, offset int64, typ uint16) (int64, int64) {
+
+	// return type == 3 ? get2() : get4();
+	if typ == 3 {
+		v, start := GetUint16WithOrder(f, order, offset)
+		return int64(v), start
+	} else {
+		v, start := GetUint16WithOrder(f, order, offset)
+		return int64(v), start
+
+	}
+
+}
+
 func readFromFileBytes(f *os.File, start int64, howmany int64) []byte {
 	_, err := f.Seek(start, 0)
 	check(err)
