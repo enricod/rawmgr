@@ -48,7 +48,7 @@ func identify(inputFile *os.File) imageInfo {
 		dataOffset, _ := common.GetUint32(inputFile, 100)
 
 		var tiffIfsArray []common.TiffIfd
-		tiffIfsArray = make([]common.TiffIfd, 10)
+		tiffIfsArray = make([]common.TiffIfd, 0)
 		common.ParseTiff(inputFile, int64(dataOffset), tiffIfsArray)
 
 	}

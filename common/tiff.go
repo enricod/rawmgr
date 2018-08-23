@@ -32,7 +32,7 @@ type TiffInfo struct {
 
 type TiffIfd struct {
 	Width      int64
-	Height     int
+	Height     int64
 	Bps        int
 	Comp       int
 	Phint      int
@@ -82,7 +82,7 @@ func GetTiff(f *os.File, order uint16, base int64) (TiffInfo, int64) {
 		nextPos = start
 	}
 
-	return TiffInfo{Tag: tag, Typ: typ, Save: save}, nextPos
+	return TiffInfo{Tag: tag, Typ: typ, Len: len, Save: save}, nextPos
 }
 
 // ParseTiff elaborazione TIFF?
@@ -139,7 +139,7 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdAr
 	log.Printf("TIFF_PARSE_IFD  entries=%d, start=%d", entries, start)
 
 	var tiffIfdNew = TiffIfd{}
-	tiffIfdArray2 := append(tiffIfdArray, tiffIfdNew)
+	//tiffIfdArray2 := append(tiffIfdArray, tiffIfdNew)
 
 	if entries > 512 {
 		return false, tiffIfdArray
@@ -151,7 +151,7 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdAr
 		case 61440: // Fuji HS10 table
 			var v uint32
 			v, start = GetUint32WithOrder(f, order, start)
-			parseTiffIfd(f, order, int64(v)+base, base, tiffIfdArray)
+			parseTiffIfd(f, order, int64(v)+base, base, append(tiffIfdArray, tiffIfdNew))
 			/*
 			   fseek (ifp, get4()+base, SEEK_SET);
 			   parse_tiff_ifd (base);
@@ -166,12 +166,15 @@ func parseTiffIfd(f *os.File, order uint16, filePos int64, base int64, tiffIfdAr
 
 			// FIXME eliminare indice 1 hardcoded
 
-			tiffIfdArray[len(tiffIfdArray)-1].Width, start = GetInt(f, order, start, tiffInfo.Typ)
+			tiffIfdNew.Width, start = GetInt(f, order, start, tiffInfo.Typ)
 
+		case 61442: // image height
+			tiffIfdNew.Height, start = GetInt(f, order, start, tiffInfo.Typ)
 		default:
 			log.Printf("TIFF_PARSE_IFD  tag=%d", tiffInfo.Tag)
 		}
+		start = tiffInfo.Save
 	}
 
-	return false, tiffIfdArray2
+	return false, append(tiffIfdArray, tiffIfdNew)
 }
