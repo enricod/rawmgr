@@ -10,17 +10,19 @@ import (
 	"github.com/enricod/rawmgr/common"
 )
 
-var Tags = []map[uint16]string{{
-	0x0100: "width",
-	0x0101: "height",
-	272:    "model",
-	0x0111: "stripOffset",
-	0x0112: "orientation",
-	0x0117: "stripByteCounts",
-	0x011a: "xResolution",
-	0x8729: "exif",
-	0xc640: "cr2Slice",
-},
+// Tags name
+var Tags = []map[uint16]string{
+	{
+		0x0100: "width",
+		0x0101: "height",
+		272:    "model",
+		0x0111: "stripOffset",
+		0x0112: "orientation",
+		0x0117: "stripByteCounts",
+		0x011a: "xResolution",
+		0x8729: "exif",
+		0xc640: "cr2Slice",
+	},
 	{
 		0x829a: "exposureTime",
 		0x829d: "fNumber",
@@ -37,6 +39,7 @@ func check(e error) {
 	}
 }
 
+// Header for canon file
 type Header struct {
 	ByteOrder       uint16
 	TiffMagicWord   uint16
@@ -47,6 +50,13 @@ type Header struct {
 	RawIfdOffset    int64
 }
 
+type RawSlice struct {
+	Count         uint16
+	SliceSize     uint16
+	LastSliceSize uint16
+}
+
+// IFD Image File Directory item
 type IFD struct {
 	Tag           uint16
 	Typ           uint16
@@ -55,8 +65,10 @@ type IFD struct {
 	ValueAsString string
 	Level         int
 	SubIFDs       IFDs
+	RawSlice      RawSlice
 }
 
+// IFDs Image File Directory
 type IFDs struct {
 	EntriesNr     uint16
 	Offset        int64
@@ -65,7 +77,6 @@ type IFDs struct {
 }
 
 func readHeader(data []byte) (Header, error) {
-
 	var start int64
 	var result = Header{}
 
@@ -94,12 +105,10 @@ func readHeader(data []byte) (Header, error) {
 // data is 12 bytes long
 func readIfd(data []byte) IFD {
 	var result = IFD{}
-
 	result.Tag = binary.LittleEndian.Uint16(data[0:2])
 	result.Typ = binary.LittleEndian.Uint16(data[2:4])
 	result.Count = binary.LittleEndian.Uint32(data[4:8])
 	result.Value = binary.LittleEndian.Uint32(data[8:12])
-
 	return result
 }
 
@@ -127,6 +136,19 @@ func loopIfds(data []byte, order uint16, offset int64, level int) IFDs {
 		case 0x927c:
 			// maker notes
 			ifd.SubIFDs = loopIfds(data, order, int64(ifd.Value), level+1)
+
+		case 0xC640:
+			// SLICES
+
+			var sliceCount, sliceSize, lastSliceSize uint16
+			var nextOffset int64
+			sliceCount, nextOffset = common.ReadUint16Order(data, order, int64(ifd.Value))
+			sliceSize, nextOffset = common.ReadUint16Order(data, order, nextOffset)
+			lastSliceSize, _ = common.ReadUint16Order(data, order, nextOffset)
+			var rawSlice = RawSlice{Count: sliceCount, SliceSize: sliceSize, LastSliceSize: lastSliceSize}
+			ifd.RawSlice = rawSlice
+			log.Printf("Slice %v \n", rawSlice)
+
 		}
 
 		items = append(items, ifd)
@@ -157,13 +179,12 @@ func readIfds(data []byte, header *Header) []IFDs {
 
 func nSpaces(spaces int) string {
 	var buffer bytes.Buffer
-
 	for i := 0; i < spaces; i++ {
 		buffer.WriteString("    ")
 	}
 	return buffer.String()
-
 }
+
 func dumpIfd(ifd IFD) {
 	var desc string
 	if v, ok := Tags[ifd.Level][ifd.Tag]; ok {
@@ -184,14 +205,13 @@ func dumpIfds(ifds []IFDs) {
 		for k := 0; k < len(ifdrow.Ifds); k++ {
 			ifd := ifdrow.Ifds[k]
 			dumpIfd(ifd)
-
 		}
 	}
 }
 
-type getStartEnd func(ifd IFDs) (int64, int64)
+type calcStartEnd func(ifd IFDs) (int64, int64)
 
-var getStartEndIFD0 = getStartEnd(func(aifd IFDs) (int64, int64) {
+var getStartEndIFD0 = calcStartEnd(func(aifd IFDs) (int64, int64) {
 	var start, end, bytesCount int64
 	for j := 0; j < len(aifd.Ifds); j++ {
 		ifd := aifd.Ifds[j]
@@ -207,7 +227,7 @@ var getStartEndIFD0 = getStartEnd(func(aifd IFDs) (int64, int64) {
 	return start, end
 })
 
-var getStartEndIFD1 = getStartEnd(func(aifd IFDs) (int64, int64) {
+var getStartEndIFD1 = calcStartEnd(func(aifd IFDs) (int64, int64) {
 	var start, end, bytesCount int64
 	for j := 0; j < len(aifd.Ifds); j++ {
 		ifd := aifd.Ifds[j]
@@ -222,24 +242,27 @@ var getStartEndIFD1 = getStartEnd(func(aifd IFDs) (int64, int64) {
 	return start, end
 })
 
-func saveJpeg(data []byte, aifd IFDs, filename string, calc getStartEnd) {
+func saveJpeg(data []byte, aifd IFDs, filename string, calc calcStartEnd) {
 	start, end := calc(aifd)
 	log.Printf("Saving JPEG %d -> %d", start, end)
 	jpegData := data[start:end]
-
 	f, err := os.Create(filename)
 	_, err = f.Write(jpegData)
 	check(err)
 	defer f.Close()
 
 }
+
+// Process start CR2 files
 func Process(data []byte) {
 	canonHeader, err := readHeader(data)
 	check(err)
 	log.Printf("Header %v\n", canonHeader)
 	ifds := readIfds(data, &canonHeader)
-	dumpIfds(ifds)
+
+	if *common.Verbose {
+		dumpIfds(ifds)
+	}
 	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
 	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
-
 }

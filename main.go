@@ -38,7 +38,9 @@ func identify(inputFile *os.File) imageInfo {
 	order, start = common.GetUint16(inputFile, 0)
 	hlen, start = common.GetUint32(inputFile, start)
 
-	fmt.Printf("order=%d, hlen=%d, start=%d\n", order, hlen, start)
+	if *common.Verbose {
+		fmt.Printf("order=%d, hlen=%d, start=%d\n", order, hlen, start)
+	}
 	result := imageInfo{make: "UNDEF"}
 	head := make([]byte, 32)
 	_, err := inputFile.ReadAt(head, 0)
@@ -54,8 +56,9 @@ func identify(inputFile *os.File) imageInfo {
 		start = 84
 		thumbOffset, start = common.GetUint32(inputFile, start)
 		thumbLength, start = common.GetUint32(inputFile, start)
-		log.Printf("thumbOffset=%d, thumbLength=%d\n", thumbOffset, thumbLength)
-
+		if *common.Verbose {
+			log.Printf("thumbOffset=%d, thumbLength=%d\n", thumbOffset, thumbLength)
+		}
 		startParse, _ := common.GetUint32(inputFile, 92)
 		fuji.ParseFuji(inputFile, int64(startParse))
 
@@ -83,6 +86,8 @@ func check(e error) {
 func main() {
 	defaultFileName := "IMG_2509.CR2" // "DSCF2483.RAF" // "IMG_2509.CR2"
 	rawfile := flag.String("f", defaultFileName, "raw file")
+	common.Verbose = flag.Bool("v", false, "verbose")
+
 	flag.Parse()
 	log.Println("reading file " + *rawfile)
 	/*

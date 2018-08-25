@@ -5,6 +5,9 @@ import (
 	"os"
 )
 
+// Verbose true if you want more output
+var Verbose *bool
+
 func check(e error) {
 	if e != nil {
 		panic(e)

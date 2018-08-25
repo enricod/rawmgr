@@ -1,11 +1,15 @@
 
+
 # CR2
 
-Reads canon CR2 files
+Reads canon CR2 files.
+Right now exports JPEG file from CR2 file.
 
-written in go 
+Based on the wonderful work by Laurent Clévy, http://lclevy.free.fr/cr2/ 
 
-Based on the wonderful work by Laurent Clévy, http://lclevy.free.fr/cr2/ thanks a lot!
+Written in go 
+
+
 
             
             
