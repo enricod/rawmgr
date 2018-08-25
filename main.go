@@ -85,12 +85,15 @@ func main() {
 	rawfile := flag.String("f", defaultFileName, "raw file")
 	flag.Parse()
 	log.Println("reading file " + *rawfile)
+	/*
+		inputFile, err := os.Open(*rawfile)
+		check(err)
 
-	inputFile, err := os.Open(*rawfile)
+		imageInfo := identify(inputFile)
+
+		log.Printf("Make: %s\n", imageInfo.make)
+	*/
+	data, err := ioutil.ReadFile(*rawfile)
 	check(err)
-
-	imageInfo := identify(inputFile)
-
-	log.Printf("Make: %s\n", imageInfo.make)
-	//
+	canon.Process(data)
 }

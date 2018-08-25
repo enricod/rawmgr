@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/enricod/rawmgr/common"
 )
@@ -20,6 +19,7 @@ var Tags = []map[uint16]string{{
 	0x0117: "stripByteCounts",
 	0x011a: "xResolution",
 	0x8729: "exif",
+	0xc640: "cr2Slice",
 },
 	{
 		0x829a: "exposureTime",
@@ -189,11 +189,10 @@ func dumpIfds(ifds []IFDs) {
 	}
 }
 
-func saveJpeg0(data []byte, ifds []IFDs) {
+type getStartEnd func(ifd IFDs) (int64, int64)
 
+var getStartEndIFD0 = getStartEnd(func(aifd IFDs) (int64, int64) {
 	var start, end, bytesCount int64
-
-	aifd := ifds[0]
 	for j := 0; j < len(aifd.Ifds); j++ {
 		ifd := aifd.Ifds[j]
 		switch ifd.Tag {
@@ -201,25 +200,15 @@ func saveJpeg0(data []byte, ifds []IFDs) {
 			start = int64(ifd.Value)
 		case 279:
 			bytesCount = int64(ifd.Value)
+
 		}
 	}
-
 	end = start + bytesCount
-	log.Printf("Start JPEG %d -> %d", start, end)
-	jpegData := data[start:end]
+	return start, end
+})
 
-	f, err := os.Create("ifd_" + strconv.Itoa(0) + ".jpeg")
-	_, err = f.Write(jpegData)
-	check(err)
-	defer f.Close()
-
-}
-
-func saveJpeg1(data []byte, ifds []IFDs) {
-
+var getStartEndIFD1 = getStartEnd(func(aifd IFDs) (int64, int64) {
 	var start, end, bytesCount int64
-
-	aifd := ifds[1]
 	for j := 0; j < len(aifd.Ifds); j++ {
 		ifd := aifd.Ifds[j]
 		switch ifd.Tag {
@@ -229,12 +218,16 @@ func saveJpeg1(data []byte, ifds []IFDs) {
 			bytesCount = int64(ifd.Value)
 		}
 	}
-
 	end = start + bytesCount
-	log.Printf("Start JPEG %d -> %d", start, end)
+	return start, end
+})
+
+func saveJpeg(data []byte, aifd IFDs, filename string, calc getStartEnd) {
+	start, end := calc(aifd)
+	log.Printf("Saving JPEG %d -> %d", start, end)
 	jpegData := data[start:end]
 
-	f, err := os.Create("ifd_" + strconv.Itoa(1) + ".jpeg")
+	f, err := os.Create(filename)
 	_, err = f.Write(jpegData)
 	check(err)
 	defer f.Close()
@@ -246,7 +239,7 @@ func Process(data []byte) {
 	log.Printf("Header %v\n", canonHeader)
 	ifds := readIfds(data, &canonHeader)
 	dumpIfds(ifds)
-	saveJpeg0(data, ifds)
-	saveJpeg1(data, ifds)
+	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
+	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
 
 }
