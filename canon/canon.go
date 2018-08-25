@@ -76,6 +76,19 @@ type IFDs struct {
 	NextIfdOffset int64
 }
 
+type DHTHeader struct {
+	Marker     uint16
+	Length     uint16
+	TableClass uint8
+	TableIndex uint8
+}
+
+type SOF3Header struct {
+}
+
+type SOSHeader struct {
+}
+
 func readHeader(data []byte) (Header, error) {
 	var start int64
 	var result = Header{}
@@ -139,7 +152,6 @@ func loopIfds(data []byte, order uint16, offset int64, level int) IFDs {
 
 		case 0xC640:
 			// SLICES
-
 			var sliceCount, sliceSize, lastSliceSize uint16
 			var nextOffset int64
 			sliceCount, nextOffset = common.ReadUint16Order(data, order, int64(ifd.Value))
@@ -253,6 +265,44 @@ func saveJpeg(data []byte, aifd IFDs, filename string, calc calcStartEnd) {
 
 }
 
+func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
+	var dhtHeader = DHTHeader{}
+
+	marker, offset2 := common.ReadUint16(data, offset)
+	if marker != 0xffc4 {
+		return dhtHeader, fmt.Errorf("DHT Marker not valid  %d", marker)
+	}
+
+	dhtHeader.Marker = marker
+
+	length, offset2 := common.ReadUint16(data, offset2)
+	dhtHeader.Length = length
+
+	tableClass := uint8(data[offset2])
+	dhtHeader.TableClass = tableClass
+	offset2++
+
+	tableIndex := uint8(data[offset2])
+	dhtHeader.TableIndex = tableIndex
+	offset2++
+
+	return dhtHeader, nil
+}
+
+func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error {
+	startOffset, _ := getStartEndIFD0(aifd)
+
+	soiMarker, offset := common.ReadUint16(data, startOffset)
+	if soiMarker != 0xffd8 {
+		return fmt.Errorf("SOI Marker not valid  %d", soiMarker)
+	}
+
+	dhtHeader, err := parseDHTHeader(data, offset)
+	check(err)
+	log.Printf("DHTHeader %v", dhtHeader)
+	return nil
+}
+
 // Process start CR2 files
 func Process(data []byte) {
 	canonHeader, err := readHeader(data)
@@ -265,4 +315,7 @@ func Process(data []byte) {
 	}
 	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
 	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
+
+	err = parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+	check(err)
 }
