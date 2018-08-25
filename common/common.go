@@ -11,7 +11,41 @@ func check(e error) {
 	}
 }
 
-// getUint16 a partire da offset legge un int uint16 e torna la nuova posizione
+func ReadUint16(data []byte, offset int64) (uint16, int64) {
+	var b1 = data[offset : offset+2]
+	return binary.BigEndian.Uint16(b1), offset + 2
+}
+
+func ReadUint16Order(data []byte, order uint16, offset int64) (uint16, int64) {
+	var b1 = data[offset : offset+2]
+	if order == 0x4949 {
+		// little endian
+		return binary.LittleEndian.Uint16(b1), offset + 2
+	} else {
+		return binary.BigEndian.Uint16(b1), offset + 2
+	}
+}
+
+func ReadUint32Order(data []byte, order uint16, offset int64) (uint32, int64) {
+	var b1 = data[offset : offset+4]
+	if order == 0x4949 {
+		// little endian
+		return binary.LittleEndian.Uint32(b1), offset + 4
+	} else {
+		return binary.BigEndian.Uint32(b1), offset + 4
+	}
+}
+
+func ReadUint8(data []byte, offset int64) (uint8, int64) {
+	return uint8(data[offset]), offset + 1
+}
+
+func ReadUint32(data []byte, order uint16, offset int64) (uint32, int64) {
+	var b1 = data[offset : offset+4]
+	return binary.BigEndian.Uint32(b1), offset + 4
+}
+
+// GetUint16 a partire da offset legge un int uint16 e torna la nuova posizione
 func GetUint16(f *os.File, offset int64) (uint16, int64) {
 	value := binary.BigEndian.Uint16(readFromFileBytes(f, offset, 2))
 	return value, offset + 2

@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 
 	"log"
 	"os"
 	"strings"
 
+	"github.com/enricod/rawmgr/canon"
 	"github.com/enricod/rawmgr/common"
 	"github.com/enricod/rawmgr/fuji"
 )
@@ -62,9 +64,11 @@ func identify(inputFile *os.File) imageInfo {
 		common.ParseTiff(inputFile, int64(dataOffset), tiffIfsArray)
 
 	} else if order == 0x4949 || order == 0x4d4d {
-		// Canon?
-		tiffIfdArray2 := common.ParseTiff(inputFile, 0, tiffIfsArray)
-		fmt.Printf("tiffIfdArray2=%d\n", len(tiffIfdArray2))
+
+		data, err := ioutil.ReadFile(inputFile.Name())
+		check(err)
+		canon.Process(data)
+
 	}
 
 	return result
