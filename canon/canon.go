@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/enricod/rawmgr/common"
 )
@@ -15,6 +17,7 @@ var Tags = []map[uint16]string{{
 	272:    "model",
 	0x0111: "stripOffset",
 	0x0112: "orientation",
+	0x0117: "stripByteCounts",
 	0x011a: "xResolution",
 	0x8729: "exif",
 },
@@ -45,12 +48,13 @@ type Header struct {
 }
 
 type IFD struct {
-	Tag     uint16
-	Typ     uint16
-	Count   uint32
-	Value   uint32
-	Level   int
-	SubIFDs IFDs
+	Tag           uint16
+	Typ           uint16
+	Count         uint32
+	Value         uint32
+	ValueAsString string
+	Level         int
+	SubIFDs       IFDs
 }
 
 type IFDs struct {
@@ -65,7 +69,7 @@ func readHeader(data []byte) (Header, error) {
 	var start int64
 	var result = Header{}
 
-	// 18761 "II" or 0x4949 means Intel byte order (little endian)
+	// "II" or 0x4949 (18761) means Intel byte order (little endian)
 	// "MM" or 0x4d4d means Motorola byte order (big endian)
 	result.ByteOrder, start = common.ReadUint16(data, start)
 	result.TiffMagicWord = uint16(data[start])
@@ -117,21 +121,14 @@ func loopIfds(data []byte, order uint16, offset int64, level int) IFDs {
 
 		switch ifd.Tag {
 		case 0x8769:
-			//log.Printf("trovata EXIF subdirectory")
+			// EXIF subdirectory
 			ifd.SubIFDs = loopIfds(data, order, int64(ifd.Value), level+1)
 
 		case 0x927c:
-			log.Printf("trovata maker notes")
+			// maker notes
 			ifd.SubIFDs = loopIfds(data, order, int64(ifd.Value), level+1)
 		}
-		/*
-			if v, ok := Tags[ifd.Tag]; ok {
-				//do something here
-				log.Printf("Entry %s #%v", v, ifd)
-			} else {
-				log.Printf("Entry #%v", ifd)
-			}
-		*/
+
 		items = append(items, ifd)
 		start = start + ifdLength
 	}
@@ -191,11 +188,65 @@ func dumpIfds(ifds []IFDs) {
 		}
 	}
 }
+
+func saveJpeg0(data []byte, ifds []IFDs) {
+
+	var start, end, bytesCount int64
+
+	aifd := ifds[0]
+	for j := 0; j < len(aifd.Ifds); j++ {
+		ifd := aifd.Ifds[j]
+		switch ifd.Tag {
+		case 273:
+			start = int64(ifd.Value)
+		case 279:
+			bytesCount = int64(ifd.Value)
+		}
+	}
+
+	end = start + bytesCount
+	log.Printf("Start JPEG %d -> %d", start, end)
+	jpegData := data[start:end]
+
+	f, err := os.Create("ifd_" + strconv.Itoa(0) + ".jpeg")
+	_, err = f.Write(jpegData)
+	check(err)
+	defer f.Close()
+
+}
+
+func saveJpeg1(data []byte, ifds []IFDs) {
+
+	var start, end, bytesCount int64
+
+	aifd := ifds[1]
+	for j := 0; j < len(aifd.Ifds); j++ {
+		ifd := aifd.Ifds[j]
+		switch ifd.Tag {
+		case 0x201:
+			start = int64(ifd.Value)
+		case 0x202:
+			bytesCount = int64(ifd.Value)
+		}
+	}
+
+	end = start + bytesCount
+	log.Printf("Start JPEG %d -> %d", start, end)
+	jpegData := data[start:end]
+
+	f, err := os.Create("ifd_" + strconv.Itoa(1) + ".jpeg")
+	_, err = f.Write(jpegData)
+	check(err)
+	defer f.Close()
+
+}
 func Process(data []byte) {
 	canonHeader, err := readHeader(data)
 	check(err)
 	log.Printf("Header %v\n", canonHeader)
 	ifds := readIfds(data, &canonHeader)
-
 	dumpIfds(ifds)
+	saveJpeg0(data, ifds)
+	saveJpeg1(data, ifds)
+
 }
