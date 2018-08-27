@@ -22,8 +22,6 @@ func xtransInterpolate(passes int) {
 	fuji.XtransInterpolate(passes)
 }
 
-const RawmgrVersion = "0.1"
-
 func fujiXtransRead(inputFile *os.File) {
 
 }
@@ -70,7 +68,7 @@ func identify(inputFile *os.File) imageInfo {
 
 		data, err := ioutil.ReadFile(inputFile.Name())
 		check(err)
-		canon.Process(data)
+		canon.ProcessCR2(data)
 
 	}
 
@@ -100,5 +98,5 @@ func main() {
 	*/
 	data, err := ioutil.ReadFile(*rawfile)
 	check(err)
-	canon.Process(data)
+	canon.ProcessCR2(data)
 }

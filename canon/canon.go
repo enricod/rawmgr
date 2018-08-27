@@ -50,7 +50,7 @@ type Header struct {
 	RawIfdOffset    int64
 }
 
-type RawSlice struct {
+type rawSlice struct {
 	Count         uint16
 	SliceSize     uint16
 	LastSliceSize uint16
@@ -65,7 +65,7 @@ type IFD struct {
 	ValueAsString string
 	Level         int
 	SubIFDs       IFDs
-	RawSlice      RawSlice
+	RawSlice      rawSlice
 }
 
 // IFDs Image File Directory
@@ -157,9 +157,9 @@ func loopIfds(data []byte, order uint16, offset int64, level int) IFDs {
 			sliceCount, nextOffset = common.ReadUint16Order(data, order, int64(ifd.Value))
 			sliceSize, nextOffset = common.ReadUint16Order(data, order, nextOffset)
 			lastSliceSize, _ = common.ReadUint16Order(data, order, nextOffset)
-			var rawSlice = RawSlice{Count: sliceCount, SliceSize: sliceSize, LastSliceSize: lastSliceSize}
-			ifd.RawSlice = rawSlice
-			log.Printf("Slice %v \n", rawSlice)
+			var aRawSlice = rawSlice{Count: sliceCount, SliceSize: sliceSize, LastSliceSize: lastSliceSize}
+			ifd.RawSlice = aRawSlice
+			log.Printf("Slice %v \n", aRawSlice)
 
 		}
 
@@ -303,8 +303,8 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error
 	return nil
 }
 
-// Process start CR2 files
-func Process(data []byte) {
+// ProcessCR2 start CR2 files
+func ProcessCR2(data []byte) {
 	canonHeader, err := readHeader(data)
 	check(err)
 	log.Printf("Header %v\n", canonHeader)
