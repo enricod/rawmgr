@@ -77,10 +77,12 @@ type IFDs struct {
 }
 
 type DHTHeader struct {
-	Marker     uint16
-	Length     uint16
-	TableClass uint8
-	TableIndex uint8
+	Marker      uint16
+	Length      uint16
+	TableClass0 uint8
+	TableIndex0 uint8
+	TableClass1 uint8
+	TableIndex1 uint8
 }
 
 type SOF3Header struct {
@@ -279,11 +281,20 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	dhtHeader.Length = length
 
 	tableClass := uint8(data[offset2])
-	dhtHeader.TableClass = tableClass
+	dhtHeader.TableClass0 = tableClass
 	offset2++
 
 	tableIndex := uint8(data[offset2])
-	dhtHeader.TableIndex = tableIndex
+	dhtHeader.TableIndex0 = tableIndex
+	offset2++
+
+	offset2 = offset2 + int64(length)
+	tableClass1 := uint8(data[offset2])
+	dhtHeader.TableClass1 = tableClass1
+	offset2++
+
+	tableIndex1 := uint8(data[offset2])
+	dhtHeader.TableIndex1 = tableIndex1
 	offset2++
 
 	return dhtHeader, nil
