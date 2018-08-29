@@ -313,8 +313,44 @@ ushort * CLASS make_decoder_ref (const uchar **source)
 	1111110		0x0b
 	1111111		0xff
 */
+
+func popFirst(s []byte) (byte, []byte) {
+	first := s[0]
+	copy(s, s[1:])
+	s2 := s[:len(s)-1]
+	return first, s2
+}
+
+func costruisciHuffTree(data0 []byte) {
+	log.Printf("huff data %v", data0)
+	nrElementiLunghiNBit := data0[0:16]
+	valoriElementi := data0[16:len(data0)]
+
+	log.Printf("NrBit\t NrElem\t\t Elementi")
+
+	for i := 0; i < 16; i++ {
+		nrElem := int(nrElementiLunghiNBit[i])
+		var valori []byte
+		for j := 0; j < nrElem; j++ {
+			var v byte
+			v, valoriElementi = popFirst(valoriElementi)
+			valori = append(valori, v)
+		}
+		log.Printf("%d \t\t %d \t\t %v", i+1, nrElem, valori)
+	}
+
+	log.Printf("%d", len(valoriElementi))
+}
+
 func decodeHuffTree(data []byte) {
-	log.Printf("huff data %v", data)
+
+	lungh := len(data) / 2
+	data0 := data[1:lungh]
+
+	data1 := data[len(data0)+1 : len(data)]
+	costruisciHuffTree(data0)
+	costruisciHuffTree(data1)
+
 }
 
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
@@ -332,7 +368,7 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
 
-	huffBytes := data[offset2 : offset2+int64(length)]
+	huffBytes := data[offset2 : offset2+int64(length-2)]
 	decodeHuffTree(huffBytes)
 	return dhtHeader, nil
 }
