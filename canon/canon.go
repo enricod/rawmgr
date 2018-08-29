@@ -269,7 +269,7 @@ func saveJpeg(data []byte, aifd IFDs, filename string, calc calcStartEnd) {
 
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	var dhtHeader = DHTHeader{}
-
+	log.Printf("parseDHTHeader offset %d", offset)
 	marker, offset2 := common.ReadUint16(data, offset)
 	if marker != 0xffc4 {
 		return dhtHeader, fmt.Errorf("DHT Marker not valid  %d", marker)
@@ -277,25 +277,27 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 
 	dhtHeader.Marker = marker
 
+	log.Printf("length offset %d", offset2)
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
 
-	tableClass := uint8(data[offset2])
-	dhtHeader.TableClass0 = tableClass
+	log.Printf("tableClass0 offset %d", offset2)
+	tableClass0 := uint8(offset2)
+	dhtHeader.TableClass0 = tableClass0
 	offset2++
 
-	tableIndex := uint8(data[offset2])
-	dhtHeader.TableIndex0 = tableIndex
-	offset2++
+	log.Printf("huffmanData0 offset %d", offset2)
+	huffmanData0 := data[offset2 : offset2+int64(32)]
+	log.Printf("huffman data0 %v", huffmanData0)
+	offset2 += 32
 
-	offset2 = offset2 + int64(length)
-	tableClass1 := uint8(data[offset2])
+	log.Printf("tableClass1 offset %d", offset2)
+	tableClass1 := uint8(offset2)
 	dhtHeader.TableClass1 = tableClass1
-	offset2++
 
-	tableIndex1 := uint8(data[offset2])
-	dhtHeader.TableIndex1 = tableIndex1
-	offset2++
+	huffmanData1 := data[offset2 : offset2+int64(32)]
+	log.Printf("huffman data 1 length %d", len(huffmanData1))
+	offset2 += 32
 
 	return dhtHeader, nil
 }
