@@ -342,6 +342,7 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 
 	dhtHeader.Marker = marker
 
+	log.Printf("length offset %d", offset2)
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
 	// log.Printf("dopo length, offset=%d\n", offset2)
