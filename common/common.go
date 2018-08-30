@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 	"os"
 )
@@ -148,7 +149,9 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 			var huffCode = HuffCode{Value: first}
 			codes = append(codes, huffCode)
 		}
-		item.Codes = codes
+
+		huffItems[i] = HuffItem{Count: item.Count, BitLength: item.BitLength, Codes: codes}
+		fmt.Printf("numero di codes %d vs %d\n", len(item.Codes), len(codes))
 	}
 	return huffItems
 }
