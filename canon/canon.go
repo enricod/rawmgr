@@ -319,17 +319,6 @@ type huffItem struct {
 	Code uint16
 }
 
-func decodeHuffTree(data []byte) {
-	log.Printf("huff data %v", data)
-
-	len := len(data)
-
-	for i := 0; i < len; i++ {
-		log.Printf("\t %d => %d \n", i, int(data[i]))
-	}
-
-}
-
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	var dhtHeader = DHTHeader{}
 
@@ -346,8 +335,8 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
 	// log.Printf("dopo length, offset=%d\n", offset2)
-	huffBytes := data[offset2 : offset2+int64(length-2)]
-	decodeHuffTree(huffBytes)
+	huffBytes := data[offset : offset+int64(length-2)]
+	common.DecodeHuffTree(huffBytes)
 	return dhtHeader, nil
 }
 

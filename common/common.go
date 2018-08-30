@@ -158,11 +158,12 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 
 // DecodeHuffTree build Huffman table
 func DecodeHuffTree(data []byte) *HuffTree {
-	log.Printf("huff data %v", data)
 
-	var result HuffTree
+	huffIems0 := GetHuffItems(data, 5)
+	log.Printf("huff data %v", huffIems0)
+	var huffTree0 HuffTree
 
-	return &result
+	return &huffTree0
 }
 
 func PopFirst(s []byte) (byte, []byte) {
