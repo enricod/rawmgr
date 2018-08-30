@@ -116,7 +116,7 @@ type HuffCode struct {
 type HuffItem struct {
 	BitLength int
 	Count     int
-	Codes     *[]HuffCode
+	Codes     []HuffCode
 }
 type HuffTree struct {
 	Left  *HuffItem
@@ -140,14 +140,15 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 	vals = data[offset+16 : offset+16+int64(totValues)]
 	for i := 0; i < 16; i++ {
 		item = huffItems[i]
-		var codes []HuffCode
+		codes := make([]HuffCode, 0)
+
 		for j := 0; j < item.Count; j++ {
 			var first byte
 			first, vals = PopFirst(vals)
 			var huffCode = HuffCode{Value: first}
 			codes = append(codes, huffCode)
 		}
-		item.Codes = &codes
+		item.Codes = codes
 	}
 	return huffItems
 }
