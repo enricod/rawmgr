@@ -313,8 +313,21 @@ ushort * CLASS make_decoder_ref (const uchar **source)
 	1111110		0x0b
 	1111111		0xff
 */
+
+type huffItem struct {
+	Key  []byte
+	Code uint16
+}
+
 func decodeHuffTree(data []byte) {
 	log.Printf("huff data %v", data)
+
+	len := len(data)
+
+	for i := 0; i < len; i++ {
+		log.Printf("\t %d => %d \n", i, int(data[i]))
+	}
+
 }
 
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
@@ -322,6 +335,7 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 
 	log.Printf("parseDHTHeader, offset=%d\n", offset)
 	marker, offset2 := common.ReadUint16(data, offset)
+
 	if marker != 0xffc4 {
 		return dhtHeader, fmt.Errorf("DHT Marker not valid  %d", marker)
 	}
@@ -330,8 +344,8 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
-
-	huffBytes := data[offset2 : offset2+int64(length)]
+	// log.Printf("dopo length, offset=%d\n", offset2)
+	huffBytes := data[offset2 : offset2+int64(length-2)]
 	decodeHuffTree(huffBytes)
 	return dhtHeader, nil
 }
