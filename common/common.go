@@ -119,10 +119,11 @@ type HuffItem struct {
 	Count     int
 	Codes     []HuffCode
 }
-type HuffTree struct {
-	Left  *HuffItem
-	Item  *HuffItem
-	Right *HuffItem
+type HuffTreeNode struct {
+	Left  *HuffTreeNode
+	Code  uint16 // example: 000010
+	Value byte
+	Right *HuffTreeNode
 }
 
 func GetHuffItems(data []byte, offset int64) []HuffItem {
@@ -157,15 +158,29 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 }
 
 // DecodeHuffTree build Huffman table
-func DecodeHuffTree(data []byte) *HuffTree {
+func DecodeHuffTree(data []byte) *HuffTreeNode {
 
 	huffIems0 := GetHuffItems(data, 5)
 	log.Printf("huff data %v", huffIems0)
-	var huffTree0 HuffTree
+	var rootNode HuffTreeNode
+	for bits := 1; bits <= 16; bits++ {
+		if bits == 1 {
+			// count := huffIems0[bits-1].Count
 
-	return &huffTree0
+			left := HuffTreeNode{Code: 0x00}
+			right := HuffTreeNode{Code: 0x01}
+			rootNode.Left = &left
+			rootNode.Right = &right
+
+		} else if bits == 2 {
+			// count := huffIems0[bits-1].Count
+
+		}
+	}
+	return &rootNode
 }
 
+// PopFirst extracts first byte from array
 func PopFirst(s []byte) (byte, []byte) {
 	first := s[0]
 	copy(s, s[1:])
