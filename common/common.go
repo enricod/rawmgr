@@ -173,7 +173,10 @@ func DecodeHuffTree(data []byte) *HuffTreeNode {
 			rootNode.Right = &right
 
 		} else if bits == 2 {
-			// count := huffIems0[bits-1].Count
+			count := huffIems0[bits-1].Count
+			for j := 0; j < count; j++ {
+
+			}
 
 		}
 	}
