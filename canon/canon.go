@@ -325,9 +325,10 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	log.Printf("length offset %d", offset2)
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
-	// log.Printf("dopo length, offset=%d\n", offset2)
+
 	huffBytes := data[offset : offset+int64(length-2)]
-	common.DecodeHuffTree(huffBytes)
+	//huffMapping0, huffMapping1 := common.DecodeHuffTree(huffBytes)
+
 	return dhtHeader, nil
 }
 
@@ -341,7 +342,8 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error
 
 	dhtHeader, err := parseDHTHeader(data, offset)
 	check(err)
-	log.Printf("DHTHeader %v", dhtHeader)
+	//log.Printf("DHTHeader %v", dhtHeader)
+
 	return nil
 }
 

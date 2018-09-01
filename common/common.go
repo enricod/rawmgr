@@ -3,7 +3,6 @@ package common
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
 	"math"
 	"os"
 )
@@ -135,7 +134,7 @@ type HuffItem struct {
 //   {3 bit, [1,2,3,4,5] }
 //      ...
 // ]
-func GetHuffItems(data []byte, offset int64) []HuffItem {
+func GetHuffItems(data []byte, offset int64) ([]HuffItem, int64) {
 	nrCodesOfLength := data[offset : offset+16]
 	var huffItems []HuffItem
 	totValues := 0
@@ -150,22 +149,11 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 	vals = data[offset+16 : offset+16+int64(totValues)]
 	for i := 0; i < 16; i++ {
 		item = huffItems[i]
-
 		someCodes := vals[0:item.Count]
 		vals = vals[item.Count:]
-
-		/*
-			for j := 0; j < item.Count; j++ {
-				var first byte
-				first, vals = PopFirst(vals)
-				//log.Printf("Firts %v, Vals %v", first, vals)
-				var huffCode = HuffCode{Value: first}
-				codes = append(codes, huffCode)
-			}
-		*/
 		huffItems[i] = HuffItem{Count: item.Count, BitLength: item.BitLength, Codes: someCodes}
 	}
-	return huffItems
+	return huffItems, offset + int64(16+totValues)
 }
 
 // NSpaces builds a string of 'spaces' spaces
@@ -177,7 +165,7 @@ func NSpaces(spaces int) string {
 	return buffer.String()
 }
 
-type huffMapping struct {
+type HuffMapping struct {
 	BitCount int
 	Value    byte
 	Code     uint32
@@ -191,10 +179,7 @@ func removeFromNextLine(lines [][]uint32, row int, howmany int) {
 	removeFromNextLine(lines, row+1, howmany*2)
 }
 
-// DecodeHuffTree builds Huffman table (starts at the 5th byte in header)
-func DecodeHuffTree(data []byte) []huffMapping {
-
-	huffIems0 := GetHuffItems(data, 5)
+func decodeHuff(huffItems []HuffItem) []HuffMapping {
 	valuesPerBitsNum := make([][]uint32, 16)
 	for i := range valuesPerBitsNum {
 		valuesPerBitsNum[i] = make([]uint32, uint32(math.Pow(2, float64(i+1))))
@@ -202,18 +187,30 @@ func DecodeHuffTree(data []byte) []huffMapping {
 			valuesPerBitsNum[i][j] = uint32(j)
 		}
 	}
+	codesMapping := []HuffMapping{}
 
-	codesMapping := []huffMapping{}
-
-	for i := range huffIems0 {
-		for j := range huffIems0[i].Codes {
-			log.Printf("%d, %d, %v", i, j, huffIems0[i])
-			codesMapping = append(codesMapping, huffMapping{BitCount: huffIems0[i].BitLength, Value: huffIems0[i].Codes[j], Code: valuesPerBitsNum[i][j]})
-			log.Printf("%d, %d, %v => %v", i, j, huffIems0[i], codesMapping)
+	for i := range huffItems {
+		for j := range huffItems[i].Codes {
+			//log.Printf("%d, %d, %v", i, j, huffIems0[i])
+			codesMapping = append(codesMapping, HuffMapping{BitCount: huffItems[i].BitLength, Value: huffItems[i].Codes[j], Code: valuesPerBitsNum[i][j]})
+			//log.Printf("%d, %d, %v => %v", i, j, huffIems0[i], codesMapping)
 			removeFromNextLine(valuesPerBitsNum, i, 2)
 		}
 	}
 	return codesMapping
+}
+
+// DecodeHuffTree builds Huffman table (starts at the 5th byte in header)
+func DecodeHuffTree(data []byte) ([]HuffMapping, []HuffMapping) {
+
+	huffIems0, offset := GetHuffItems(data, 5)
+	mapping0 := decodeHuff(huffIems0)
+
+	// fixme
+	huffItems1, _ := GetHuffItems(data, offset+1)
+	mapping1 := decodeHuff(huffItems1)
+
+	return mapping0, mapping1
 }
 
 // PopFirst extracts first byte from array

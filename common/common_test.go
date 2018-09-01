@@ -19,7 +19,7 @@ func data1() []byte {
 		// table class / table index
 		byte(0x00),
 
-		// data start
+		// data start #0
 		byte(0x00),
 		byte(0x01),
 		byte(0x05),
@@ -58,7 +58,7 @@ func data1() []byte {
 		// ---- Table class / huffmant table index
 		byte(0x01),
 
-		// ---
+		// data start #1
 		byte(0x00),
 		byte(0x03),
 		byte(0x01),
@@ -74,6 +74,7 @@ func data1() []byte {
 		byte(0x01),
 		byte(0x01),
 		byte(0x01),
+		byte(0x00),
 
 		// -- valori
 		byte(0x00),
@@ -109,8 +110,11 @@ func TestGetHuffItems(t *testing.T) {
 	assert.Equal(offset, int64(2), "offset must be 2")
 	assert.Equal(uint16(0xffc4), v0, "marker")
 
-	huffItems := GetHuffItems(data, 5)
+	huffItems, offset := GetHuffItems(data, 5)
 	assert.Equal(16, len(huffItems), "nr elements ")
+
+	huffItems1, _ := GetHuffItems(data, 5+33)
+	assert.Equal(16, len(huffItems1), "nr elements ")
 
 	for i := 0; i < 16; i++ {
 		assert.Equal(i+1, huffItems[i].BitLength, "")
@@ -141,6 +145,34 @@ func TestDecodeHuffTree(t *testing.T) {
 	assert := assert.New(t)
 	data := data1()
 
-	huffMapping := DecodeHuffTree(data)
-	assert.NotEmpty(huffMapping)
+	huffMapping0, huffMapping1 := DecodeHuffTree(data)
+	assert.NotEmpty(huffMapping0)
+	assert.NotEmpty(huffMapping1)
+
+	// 2 bits
+	assert.Equal(huffMapping0[0].BitCount, 2, "")
+	assert.Equal(huffMapping0[0].Code, uint32(0), "")
+	assert.Equal(huffMapping0[0].Value, uint8(0x00), "")
+
+	// 3 bits, first value
+	assert.Equal(huffMapping0[1].BitCount, 3, "")
+	assert.Equal(huffMapping0[1].Code, uint32(2), "")
+	assert.Equal(huffMapping0[1].Value, uint8(1), "")
+
+	assert.Equal(3, huffMapping0[2].BitCount, "")
+	assert.Equal(huffMapping0[2].Code, uint32(3), "")
+	assert.Equal(huffMapping0[2].Value, uint8(2), "")
+
+	assert.Equal(6, huffMapping0[8].BitCount, "")
+	assert.Equal(uint32(62), huffMapping0[8].Code, "")
+	assert.Equal(uint8(8), huffMapping0[8].Value, "")
+
+	assert.Equal(13, huffMapping0[15].BitCount, "")
+	assert.Equal(uint32(8190), huffMapping0[15].Code, "")
+	assert.Equal(uint8(15), huffMapping0[15].Value, "")
+
+	// 2 bits
+	assert.Equal(huffMapping1[0].BitCount, 2, "")
+	assert.Equal(uint32(0), huffMapping1[0].Code, "")
+	assert.Equal(uint8(0x00), huffMapping1[0].Value, "")
 }
