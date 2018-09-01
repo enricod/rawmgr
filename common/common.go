@@ -1,9 +1,9 @@
 package common
 
 import (
+	"bytes"
 	"encoding/binary"
-	"fmt"
-	"log"
+	"math"
 	"os"
 )
 
@@ -110,24 +110,23 @@ func readFromFileBytes(f *os.File, start int64, howmany int64) []byte {
 	return retBytes
 }
 
-type HuffCode struct {
-	Value    byte
-	BytesStr string
-}
 type HuffItem struct {
 	BitLength int
 	Count     int
-	Codes     []HuffCode
-}
-type HuffTreeNode struct {
-	Left  *HuffTreeNode
-	Code  uint16 // example: 000010
-	Value byte
-	Right *HuffTreeNode
+	Codes     []byte
 }
 
+// GetHuffItems from the file extracts the data for the Huffman tree
+// the first 16 bytes give the number of bytes to associate to the item, which are taken from an array starting offset+16
+//
+//               offset
+//  |----|----|----|
+//   ffc4 0042 0000
+//
+//  |----|----|----|----|----|----|----|----
+//   0104 0203 0101 0101 0100 0000 0000 00
+//
 func GetHuffItems(data []byte, offset int64) []HuffItem {
-	//length, offset := ReadUint16Order(data, LittleEndian, 2)
 	nrCodesOfLength := data[offset : offset+16]
 	var huffItems []HuffItem
 	totValues := 0
@@ -142,45 +141,58 @@ func GetHuffItems(data []byte, offset int64) []HuffItem {
 	vals = data[offset+16 : offset+16+int64(totValues)]
 	for i := 0; i < 16; i++ {
 		item = huffItems[i]
-		codes := make([]HuffCode, 0)
 
-		for j := 0; j < item.Count; j++ {
-			var first byte
-			first, vals = PopFirst(vals)
-			var huffCode = HuffCode{Value: first}
-			codes = append(codes, huffCode)
-		}
+		someCodes := vals[0:item.Count]
+		vals = vals[item.Count:]
 
-		huffItems[i] = HuffItem{Count: item.Count, BitLength: item.BitLength, Codes: codes}
-		fmt.Printf("numero di codes %d vs %d\n", len(item.Codes), len(codes))
+		/*
+			for j := 0; j < item.Count; j++ {
+				var first byte
+				first, vals = PopFirst(vals)
+				//log.Printf("Firts %v, Vals %v", first, vals)
+				var huffCode = HuffCode{Value: first}
+				codes = append(codes, huffCode)
+			}
+		*/
+		huffItems[i] = HuffItem{Count: item.Count, BitLength: item.BitLength, Codes: someCodes}
 	}
 	return huffItems
 }
 
-// DecodeHuffTree build Huffman table
-func DecodeHuffTree(data []byte) *HuffTreeNode {
+// NSpaces builds a string of 'spaces' spaces
+func NSpaces(spaces int) string {
+	var buffer bytes.Buffer
+	for i := 0; i < spaces; i++ {
+		buffer.WriteString("    ")
+	}
+	return buffer.String()
+}
+
+type huffMapping struct {
+	Value byte
+	Code  uint32
+}
+
+// DecodeHuffTree builds Huffman table (starts at the 5th byte in header)
+func DecodeHuffTree(data []byte) []huffMapping {
 
 	huffIems0 := GetHuffItems(data, 5)
-	log.Printf("huff data %v", huffIems0)
-	var rootNode HuffTreeNode
-	for bits := 1; bits <= 16; bits++ {
-		if bits == 1 {
-			// count := huffIems0[bits-1].Count
-
-			left := HuffTreeNode{Code: 0x00}
-			right := HuffTreeNode{Code: 0x01}
-			rootNode.Left = &left
-			rootNode.Right = &right
-
-		} else if bits == 2 {
-			count := huffIems0[bits-1].Count
-			for j := 0; j < count; j++ {
-
-			}
-
+	valuesPerBitsNum := make([][]uint32, 16)
+	for i := range valuesPerBitsNum {
+		valuesPerBitsNum[i] = make([]uint32, uint32(math.Pow(2, float64(i+1))))
+		for j := range valuesPerBitsNum[i] {
+			valuesPerBitsNum[i][j] = uint32(j)
 		}
 	}
-	return &rootNode
+
+	codesMapping := []huffMapping{}
+
+	for i := range huffIems0 {
+		for j := range huffIems0[i].Codes {
+			codesMapping = append(codesMapping, huffMapping{Value: huffIems0[i].Codes[j], Code: valuesPerBitsNum[i][j]})
+		}
+	}
+	return codesMapping
 }
 
 // PopFirst extracts first byte from array

@@ -1,7 +1,6 @@
 package canon
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -191,14 +190,6 @@ func readIfds(data []byte, header *Header) []IFDs {
 	return result
 }
 
-func nSpaces(spaces int) string {
-	var buffer bytes.Buffer
-	for i := 0; i < spaces; i++ {
-		buffer.WriteString("    ")
-	}
-	return buffer.String()
-}
-
 func dumpIfd(ifd IFD) {
 	var desc string
 	if v, ok := Tags[ifd.Level][ifd.Tag]; ok {
@@ -206,7 +197,7 @@ func dumpIfd(ifd IFD) {
 	} else {
 		desc = "Tag "
 	}
-	log.Printf("%s %s #%v, Value=%v, Count=%d", nSpaces(ifd.Level), desc, ifd.Tag, ifd.Value, ifd.Count)
+	log.Printf("%s %s #%v, Value=%v, Count=%d", common.NSpaces(ifd.Level), desc, ifd.Tag, ifd.Value, ifd.Count)
 	for j := 0; j < len(ifd.SubIFDs.Ifds); j++ {
 		ifd2 := ifd.SubIFDs.Ifds[j]
 		dumpIfd(ifd2)

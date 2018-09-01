@@ -1,11 +1,13 @@
 package common
 
 import (
+	"log"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDecodeHuffTree(t *testing.T) {
-
+func data1() []byte {
 	data := []byte{
 		// 0xffc4
 		byte(0xff),
@@ -96,30 +98,25 @@ func TestDecodeHuffTree(t *testing.T) {
 		byte(0xff),
 		byte(0xc3),
 	}
+	return data
+}
+
+func TestDecodeHuffTree(t *testing.T) {
+	assert := assert.New(t)
+
+	data := data1()
 
 	v0, offset := ReadUint16Order(data, 0x9999, 0)
-	if offset != 2 {
-		t.Errorf("offset deve essere 2")
-	}
-	if v0 != 0xffc4 {
-		t.Errorf("first value must be 0xffc4, found=%d", v0)
-	}
+	assert.Equal(offset, int64(2), "offset must be 2")
+	assert.Equal(uint16(0xffc4), v0, "marker")
 
 	huffItems := GetHuffItems(data, 5)
-	if 16 != len(huffItems) {
-		t.Errorf("devono essere 16 elementi, found=%d", len(huffItems))
-	}
+	assert.Equal(16, len(huffItems), "nr elements ")
 
 	for i := 0; i < 16; i++ {
-		if huffItems[i].BitLength != i+1 {
-			t.Errorf("BitLength deve essere %d, found=%d", int(data[5+i]), huffItems[i].BitLength)
-		}
-		if huffItems[i].Count != int(data[5+i]) {
-			t.Errorf("Count deve essere %d, found=%d", int(data[5+i]), huffItems[i].Count)
-		}
-		if huffItems[i].Count != len(huffItems[i].Codes) {
-			t.Errorf("Items count, expected %d, got %d", huffItems[i].Count, len(huffItems[i].Codes))
-		}
+		assert.Equal(i+1, huffItems[i].BitLength, "")
+		assert.Equal(int(data[5+i]), huffItems[i].Count, "")
+		assert.Equal(huffItems[i].Count, len(huffItems[i].Codes), "")
 	}
 
 	totValues := 0
@@ -127,7 +124,11 @@ func TestDecodeHuffTree(t *testing.T) {
 		totValues += huffItems[i].Count
 	}
 
-	if totValues != 16 {
-		t.Errorf("totValues deve essere 16, found=%d", totValues)
-	}
+	assert.Equal(totValues, 16, "")
+	assert.Equal(huffItems[1].Count, 1, "")
+	assert.Equal(huffItems[1].Codes[0], uint8(0x00))
+	assert.Equal(int(0x03), int(huffItems[2].Codes[2]), "3 bytes, the 3rd value is = 3")
+
+	huffMappings := DecodeHuffTree(data)
+	log.Printf("%v", huffMappings)
 }

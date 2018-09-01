@@ -82,7 +82,7 @@ func check(e error) {
 }
 
 func main() {
-	defaultFileName := "images/CANON_EOS_6D_01.CR2" // "DSCF2483.RAF" // "IMG_2509.CR2"
+	defaultFileName := "images/Canon-EOS6D-RAW.CR2" // "DSCF2483.RAF" // "IMG_2509.CR2"
 	rawfile := flag.String("f", defaultFileName, "raw file")
 	common.Verbose = flag.Bool("v", false, "verbose")
 
