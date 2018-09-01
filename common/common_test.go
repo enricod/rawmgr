@@ -1,7 +1,6 @@
 package common
 
 import (
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,7 +100,7 @@ func data1() []byte {
 	return data
 }
 
-func TestDecodeHuffTree(t *testing.T) {
+func TestGetHuffItems(t *testing.T) {
 	assert := assert.New(t)
 
 	data := data1()
@@ -129,6 +128,19 @@ func TestDecodeHuffTree(t *testing.T) {
 	assert.Equal(huffItems[1].Codes[0], uint8(0x00))
 	assert.Equal(int(0x03), int(huffItems[2].Codes[2]), "3 bytes, the 3rd value is = 3")
 
-	huffMappings := DecodeHuffTree(data)
-	log.Printf("%v", huffMappings)
+	// 13 bytes
+	assert.Equal(1, int(huffItems[12].Count), "13 bytes, 1 code")
+	assert.Equal(int(0x0f), int(huffItems[12].Codes[0]), "13 bytes, 1 code, value of the code is 15")
+
+	assert.Equal(0, int(huffItems[13].Count), "14 bytes, no codes")
+	assert.Equal(0, int(huffItems[15].Count), "16 bytes, no codes")
+
+}
+
+func TestDecodeHuffTree(t *testing.T) {
+	assert := assert.New(t)
+	data := data1()
+
+	huffMapping := DecodeHuffTree(data)
+	assert.NotEmpty(huffMapping)
 }

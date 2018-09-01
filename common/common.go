@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 	"math"
 	"os"
 )
@@ -126,6 +127,14 @@ type HuffItem struct {
 //  |----|----|----|----|----|----|----|----
 //   0104 0203 0101 0101 0100 0000 0000 00
 //
+//
+// returns something like
+// [
+//	 {1 bit, []}
+//   {2 bit, [ 0 ] }
+//   {3 bit, [1,2,3,4,5] }
+//      ...
+// ]
 func GetHuffItems(data []byte, offset int64) []HuffItem {
 	nrCodesOfLength := data[offset : offset+16]
 	var huffItems []HuffItem
@@ -169,8 +178,17 @@ func NSpaces(spaces int) string {
 }
 
 type huffMapping struct {
-	Value byte
-	Code  uint32
+	BitCount int
+	Value    byte
+	Code     uint32
+}
+
+func removeFromNextLine(lines [][]uint32, row int, howmany int) {
+	if row == len(lines)-1 {
+		return
+	}
+	lines[row+1] = lines[row+1][howmany:len(lines[row+1])]
+	removeFromNextLine(lines, row+1, howmany*2)
 }
 
 // DecodeHuffTree builds Huffman table (starts at the 5th byte in header)
@@ -189,7 +207,10 @@ func DecodeHuffTree(data []byte) []huffMapping {
 
 	for i := range huffIems0 {
 		for j := range huffIems0[i].Codes {
-			codesMapping = append(codesMapping, huffMapping{Value: huffIems0[i].Codes[j], Code: valuesPerBitsNum[i][j]})
+			log.Printf("%d, %d, %v", i, j, huffIems0[i])
+			codesMapping = append(codesMapping, huffMapping{BitCount: huffIems0[i].BitLength, Value: huffIems0[i].Codes[j], Code: valuesPerBitsNum[i][j]})
+			log.Printf("%d, %d, %v => %v", i, j, huffIems0[i], codesMapping)
+			removeFromNextLine(valuesPerBitsNum, i, 2)
 		}
 	}
 	return codesMapping
