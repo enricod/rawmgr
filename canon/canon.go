@@ -2,6 +2,7 @@ package canon
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -82,9 +83,6 @@ type DHTHeader struct {
 	TableIndex0 uint8
 	TableClass1 uint8
 	TableIndex1 uint8
-}
-
-type SOF3Header struct {
 }
 
 type SOSHeader struct {
@@ -310,6 +308,95 @@ type huffItem struct {
 	Code uint16
 }
 
+type SOF3Component struct {
+	ComponentIdentifier      uint8
+	HorizontalSamplingFactor uint8
+	VerticalSamplingFactor   uint8
+	QuantizationTable        uint8
+}
+
+type SOF3Header struct {
+	Marker                    uint16
+	Length                    uint16
+	SamplePrecision           uint8
+	NrLines                   uint16
+	NrSamplesPerLine          uint16
+	NrImageComponentsPerFrame uint8
+	Components                []SOF3Component
+}
+
+func hammingDistance(a, b []byte) (int, error) {
+	if len(a) != len(b) {
+		return 0, errors.New("a b are not the same length")
+	}
+
+	diff := 0
+	for i := 0; i < len(a); i++ {
+		b1 := a[i]
+		b2 := b[i]
+		for j := 0; j < 8; j++ {
+			mask := byte(1 << uint(j))
+			if (b1 & mask) != (b2 & mask) {
+				diff++
+			}
+		}
+	}
+	return diff, nil
+}
+func parseSOF3Header(data []byte, offset int64) (SOF3Header, error) {
+	//log.Printf("SOF3 header offset %d", offset)
+
+	sof3Header := SOF3Header{}
+	marker, offset2 := common.ReadUint16(data, offset)
+
+	log.Printf("SOF3 MARKER %d", marker)
+	if marker != 0xffc3 {
+		_, err := fmt.Printf("SOF3 header invalid, expected %d, found %d", 0xffc3, marker)
+		return sof3Header, err
+	}
+	sof3Header.Marker = marker
+	length, offset2 := common.ReadUint16(data, offset2)
+	sof3Header.Length = length
+
+	samplePrecision, offset2 := common.ReadUint8(data, offset2)
+	sof3Header.SamplePrecision = samplePrecision
+
+	nrLines, offset2 := common.ReadUint16(data, offset2)
+	sof3Header.NrLines = nrLines
+
+	nrSamplePerLine, offset2 := common.ReadUint16(data, offset2)
+	sof3Header.NrSamplesPerLine = nrSamplePerLine
+
+	imageComponentsPerFrame, offset2 := common.ReadUint8(data, offset2)
+	sof3Header.NrImageComponentsPerFrame = imageComponentsPerFrame
+
+	// let's read each component
+	components := []SOF3Component{}
+	var offset3 = offset2
+	var identifier, quantizationTable uint8
+
+	for i := 0; i < int(imageComponentsPerFrame); i++ {
+		identifier, offset3 = common.ReadUint8(data, offset3)
+
+		samplingByte := data[offset3]
+		log.Printf(" => %s, first=%s, second=%s",
+			fmt.Sprintf("%08b ", samplingByte),
+			fmt.Sprintf("%08b ", samplingByte>>4),
+			fmt.Sprintf("%08b ", (samplingByte&0x0f)))
+		//horizontalSamplingFactor, offset3 = common.ReadUint8(data, offset3)
+
+		offset3++
+		quantizationTable, offset3 = common.ReadUint8(data, offset3)
+		comp := SOF3Component{ComponentIdentifier: identifier,
+			HorizontalSamplingFactor: uint8(samplingByte >> 4),
+			VerticalSamplingFactor:   uint8(samplingByte & 0x0f),
+			QuantizationTable:        quantizationTable}
+		components = append(components, comp)
+	}
+
+	sof3Header.Components = components
+	return sof3Header, nil
+}
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	var dhtHeader = DHTHeader{}
 
@@ -327,7 +414,15 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	dhtHeader.Length = length
 
 	huffBytes := data[offset : offset+int64(length-2)]
-	//huffMapping0, huffMapping1 := common.DecodeHuffTree(huffBytes)
+	huffMapping0, huffMapping1 := common.DecodeHuffTree(huffBytes)
+	log.Printf("huffMapping0 %v", huffMapping0)
+	log.Printf("huffMapping1 %v", huffMapping1)
+
+	sof3Header, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	log.Printf("SOF3Header = %v", sof3Header)
 
 	return dhtHeader, nil
 }
@@ -342,7 +437,7 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error
 
 	dhtHeader, err := parseDHTHeader(data, offset)
 	check(err)
-	//log.Printf("DHTHeader %v", dhtHeader)
+	log.Printf("DHTHeader %v", dhtHeader)
 
 	return nil
 }
