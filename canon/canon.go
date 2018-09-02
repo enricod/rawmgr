@@ -85,9 +85,6 @@ type DHTHeader struct {
 	TableIndex1 uint8
 }
 
-type SOSHeader struct {
-}
-
 func readHeader(data []byte) (Header, error) {
 	var start int64
 	var result = Header{}
@@ -325,6 +322,22 @@ type SOF3Header struct {
 	Components                []SOF3Component
 }
 
+type SOSComponent struct {
+	Selector uint8
+	DCTable  uint8
+	ACTable  uint8
+}
+
+type SOSHeader struct {
+	Marker                              uint16
+	Length                              uint16
+	NrComponents                        uint8
+	Components                          []SOSComponent
+	StartOfSpectral                     uint8
+	EndOfSpectral                       uint8
+	SuccessiveApprosimationBitPositions uint8
+}
+
 func hammingDistance(a, b []byte) (int, error) {
 	if len(a) != len(b) {
 		return 0, errors.New("a b are not the same length")
@@ -343,16 +356,16 @@ func hammingDistance(a, b []byte) (int, error) {
 	}
 	return diff, nil
 }
-func parseSOF3Header(data []byte, offset int64) (SOF3Header, error) {
+func parseSOF3Header(data []byte, offset int64) (SOF3Header, int64, error) {
 	//log.Printf("SOF3 header offset %d", offset)
 
 	sof3Header := SOF3Header{}
 	marker, offset2 := common.ReadUint16(data, offset)
 
-	log.Printf("SOF3 MARKER %d", marker)
+	log.Printf("SOF3 offset=%d, marker=%d", offset, marker)
 	if marker != 0xffc3 {
 		_, err := fmt.Printf("SOF3 header invalid, expected %d, found %d", 0xffc3, marker)
-		return sof3Header, err
+		return sof3Header, offset2, err
 	}
 	sof3Header.Marker = marker
 	length, offset2 := common.ReadUint16(data, offset2)
@@ -377,16 +390,10 @@ func parseSOF3Header(data []byte, offset int64) (SOF3Header, error) {
 
 	for i := 0; i < int(imageComponentsPerFrame); i++ {
 		identifier, offset3 = common.ReadUint8(data, offset3)
-
 		samplingByte := data[offset3]
-		log.Printf(" => %s, first=%s, second=%s",
-			fmt.Sprintf("%08b ", samplingByte),
-			fmt.Sprintf("%08b ", samplingByte>>4),
-			fmt.Sprintf("%08b ", (samplingByte&0x0f)))
-		//horizontalSamplingFactor, offset3 = common.ReadUint8(data, offset3)
-
 		offset3++
 		quantizationTable, offset3 = common.ReadUint8(data, offset3)
+
 		comp := SOF3Component{ComponentIdentifier: identifier,
 			HorizontalSamplingFactor: uint8(samplingByte >> 4),
 			VerticalSamplingFactor:   uint8(samplingByte & 0x0f),
@@ -395,8 +402,56 @@ func parseSOF3Header(data []byte, offset int64) (SOF3Header, error) {
 	}
 
 	sof3Header.Components = components
-	return sof3Header, nil
+
+	return sof3Header, offset3, nil
 }
+
+func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
+	sosHeader := SOSHeader{}
+	marker, offset2 := common.ReadUint16(data, offset)
+	log.Printf("SOS  offset=%d, marker=%d", offset, marker)
+	if marker != 0xffda {
+		_, err := fmt.Printf("SOS header invalid, expected %d, found %d", 0xffda, marker)
+		return sosHeader, offset2, err
+	}
+	sosHeader.Marker = marker
+
+	length, offset2 := common.ReadUint16(data, offset2)
+	sosHeader.Length = length
+
+	nrComponents, offset2 := common.ReadUint8(data, offset2)
+	sosHeader.NrComponents = nrComponents
+
+	// let's read each component
+	components := []SOSComponent{}
+	var offset3 = offset2
+	var identifier uint8
+
+	for i := 0; i < int(nrComponents); i++ {
+		identifier, offset3 = common.ReadUint8(data, offset3)
+		samplingByte := data[offset3]
+		offset3++
+
+		comp := SOSComponent{Selector: identifier,
+			DCTable: uint8(samplingByte >> 4),
+			ACTable: uint8(samplingByte & 0x0f),
+		}
+		components = append(components, comp)
+	}
+	sosHeader.Components = components
+
+	startOfSpectral, offset3 := common.ReadUint8(data, offset3)
+	sosHeader.StartOfSpectral = startOfSpectral
+
+	endOfSpectral, offset3 := common.ReadUint8(data, offset3)
+	sosHeader.EndOfSpectral = endOfSpectral
+
+	successiveApprosimationBitPositions, offset3 := common.ReadUint8(data, offset3)
+	sosHeader.SuccessiveApprosimationBitPositions = successiveApprosimationBitPositions
+
+	return sosHeader, offset3, nil
+}
+
 func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	var dhtHeader = DHTHeader{}
 
@@ -418,11 +473,17 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	log.Printf("huffMapping0 %v", huffMapping0)
 	log.Printf("huffMapping1 %v", huffMapping1)
 
-	sof3Header, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
+	sof3Header, offset2, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
 	if err != nil {
 		log.Printf("%v", err)
 	}
 	log.Printf("SOF3Header = %v", sof3Header)
+
+	sosHeader, _, err := parseSOSHeader(data, offset2)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	log.Printf("SOSHeader = %v", sosHeader)
 
 	return dhtHeader, nil
 }
