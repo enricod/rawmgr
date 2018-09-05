@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 
 	"github.com/enricod/rawmgr/common"
@@ -83,6 +84,12 @@ type DHTHeader struct {
 	TableIndex0 uint8
 	TableClass1 uint8
 	TableIndex1 uint8
+}
+
+type LosslessJPG struct {
+	DHTHeader  DHTHeader
+	SOF3Header SOF3Header
+	SOSHeader  SOSHeader
 }
 
 func readHeader(data []byte) (Header, error) {
@@ -452,14 +459,14 @@ func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
 	return sosHeader, offset3, nil
 }
 
-func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
+func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	var dhtHeader = DHTHeader{}
 
 	log.Printf("parseDHTHeader, offset=%d\n", offset)
 	marker, offset2 := common.ReadUint16(data, offset)
 
 	if marker != 0xffc4 {
-		return dhtHeader, fmt.Errorf("DHT Marker not valid  %d", marker)
+		return LosslessJPG{}, offset2, fmt.Errorf("DHT Marker not valid  %d", marker)
 	}
 
 	dhtHeader.Marker = marker
@@ -477,15 +484,22 @@ func parseDHTHeader(data []byte, offset int64) (DHTHeader, error) {
 	if err != nil {
 		log.Printf("%v", err)
 	}
-	log.Printf("SOF3Header = %v", sof3Header)
 
-	sosHeader, _, err := parseSOSHeader(data, offset2)
+	sosHeader, offset3, err := parseSOSHeader(data, offset2)
 	if err != nil {
 		log.Printf("%v", err)
 	}
-	log.Printf("SOSHeader = %v", sosHeader)
 
-	return dhtHeader, nil
+	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header, SOSHeader: sosHeader}
+	return losslessJPG, offset3, nil
+}
+
+func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
+
+	log.Printf("RAW data offset %d", offset)
+	initialValue := uint32(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
+	log.Printf("initialValue %d", initialValue)
+	return nil
 }
 
 func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error {
@@ -496,9 +510,11 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error
 		return fmt.Errorf("SOI Marker not valid  %d", soiMarker)
 	}
 
-	dhtHeader, err := parseDHTHeader(data, offset)
+	loselessJPG, loselessJPGOffset, err := parseDHTHeader(data, offset)
 	check(err)
-	log.Printf("DHTHeader %v", dhtHeader)
+	log.Printf("loselessJPG %v", loselessJPG)
+
+	scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
 
 	return nil
 }
