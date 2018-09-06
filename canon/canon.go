@@ -180,6 +180,7 @@ func loopIfds(data []byte, order uint16, offset int64, level int) IFDs {
 	result.NextIfdOffset = int64(nextIfdOffset)
 	return result
 }
+
 func readIfds(data []byte, header *Header) []IFDs {
 
 	var result []IFDs
@@ -397,6 +398,7 @@ func parseSOF3Header(data []byte, offset int64) (SOF3Header, int64, error) {
 	imageComponentsPerFrame, offset2 := common.ReadUint8(data, offset2)
 	sof3Header.NrImageComponentsPerFrame = imageComponentsPerFrame
 
+	log.Printf("nrSamplePerLine=%d, imageComponentsPerFrame=%d ", nrSamplePerLine, imageComponentsPerFrame)
 	// let's read each component
 	components := []SOF3Component{}
 	var offset3 = offset2
@@ -504,11 +506,54 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	return losslessJPG, offset3, nil
 }
 
+func getRawSlice(ifd IFDs) (rawSlice, error) {
+	for _, ifd := range ifd.Ifds {
+		if ifd.Tag == 0xc640 {
+			return ifd.RawSlice, nil
+		}
+	}
+	return rawSlice{}, errors.New("raw slice not found")
+}
+
+func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
+	mybytes := []byte{}
+
+	var pos = offset
+	i := 0
+	for i = 0; i < 12; i++ {
+		b := data[pos+int64(i)]
+		mybytes = append(mybytes, b)
+		if b == 0xff && data[pos+int64(i)+1] == 0x00 {
+			i++
+		}
+	}
+	return mybytes, offset + int64(i)
+}
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
 
-	log.Printf("RAW data offset %d", offset)
 	initialValue := uint32(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
-	log.Printf("initialValue %d", initialValue)
+	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
+	rawSlice, err := getRawSlice(aifd)
+	if err != nil {
+		return err
+	}
+	log.Printf("rawSlice %v", rawSlice)
+	pos := offset
+	var mybytes []byte
+
+	for _, h := range loselessJPG.HuffmanCodes0 {
+		log.Printf("HUFF0 | %v => %v", h.Code, h.Value)
+	}
+
+	for _, h := range loselessJPG.HuffmanCodes1 {
+		log.Printf("HUFF1 | %v => %v", h.Code, h.Value)
+	}
+	// PROVVISORIO
+	for j := 0; j < 10; j++ {
+		mybytes, pos = extractFirstBytes(data, pos, 12)
+		log.Printf("pos=%d, bytes %v", pos, mybytes)
+	}
+
 	return nil
 }
 
