@@ -520,12 +520,13 @@ func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 
 	var pos = offset
 	i := 0
-	for i = 0; i < 12; i++ {
+	for len(mybytes) < howmany {
 		b := data[pos+int64(i)]
 		mybytes = append(mybytes, b)
 		if b == 0xff && data[pos+int64(i)+1] == 0x00 {
 			i++
 		}
+		i++
 	}
 	return mybytes, offset + int64(i)
 }
@@ -550,7 +551,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	}
 	// PROVVISORIO
 	for j := 0; j < 10; j++ {
-		mybytes, pos = extractFirstBytes(data, pos, 12)
+		mybytes, pos = extractFirstBytes(data, pos, 6)
 		log.Printf("pos=%d, bytes %v", pos, mybytes)
 	}
 

@@ -168,10 +168,10 @@ func NSpaces(spaces int) string {
 type HuffMapping struct {
 	BitCount int
 	Value    byte
-	Code     uint32
+	Code     uint64
 }
 
-func removeFromNextLine(lines [][]uint32, row int, howmany int) {
+func removeFromNextLine(lines [][]uint64, row int, howmany int) {
 	if row == len(lines)-1 {
 		return
 	}
@@ -180,11 +180,11 @@ func removeFromNextLine(lines [][]uint32, row int, howmany int) {
 }
 
 func decodeHuff(huffItems []HuffItem) []HuffMapping {
-	valuesPerBitsNum := make([][]uint32, 16)
+	valuesPerBitsNum := make([][]uint64, 16)
 	for i := range valuesPerBitsNum {
-		valuesPerBitsNum[i] = make([]uint32, uint32(math.Pow(2, float64(i+1))))
+		valuesPerBitsNum[i] = make([]uint64, uint32(math.Pow(2, float64(i+1))))
 		for j := range valuesPerBitsNum[i] {
-			valuesPerBitsNum[i][j] = uint32(j)
+			valuesPerBitsNum[i][j] = uint64(j)
 		}
 	}
 	codesMapping := []HuffMapping{}
