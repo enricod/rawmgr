@@ -105,6 +105,11 @@ func data1() []byte {
 func TestShiftBytes(t *testing.T) {
 	assert := assert.New(t)
 
+	data := data1()
+	huffMappings, _ := DecodeHuffTree(data)
+
+	assert.Equal(16, len(huffMappings), "")
+
 	mybytes := []byte{0x00, 0x00, 0xff, 0x1f, 0x7f, 0xa4, 0x99, 0x12}
 	num := binary.BigEndian.Uint64(mybytes)
 	assert.Equal(uint64(0xff1f7fa49912), num, "")

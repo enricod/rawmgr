@@ -543,11 +543,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	var mybytes []byte
 
 	for _, h := range loselessJPG.HuffmanCodes0 {
-		log.Printf("HUFF0 | %v => %v", h.Code, h.Value)
+		log.Printf("HUFF0 | %d %02b => %v", h.BitCount, h.Code, h.Value)
 	}
 
 	for _, h := range loselessJPG.HuffmanCodes1 {
-		log.Printf("HUFF1 | %v => %v", h.Code, h.Value)
+		log.Printf("HUFF1 | %d %02b => %v", h.BitCount, h.Code, h.Value)
 	}
 	// PROVVISORIO
 	for j := 0; j < 10; j++ {
