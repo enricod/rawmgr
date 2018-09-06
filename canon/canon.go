@@ -77,6 +77,7 @@ type IFDs struct {
 	NextIfdOffset int64
 }
 
+// DHTHeader -
 type DHTHeader struct {
 	Marker      uint16
 	Length      uint16
@@ -87,9 +88,11 @@ type DHTHeader struct {
 }
 
 type LosslessJPG struct {
-	DHTHeader  DHTHeader
-	SOF3Header SOF3Header
-	SOSHeader  SOSHeader
+	DHTHeader     DHTHeader
+	SOF3Header    SOF3Header
+	SOSHeader     SOSHeader
+	HuffmanCodes0 []common.HuffMapping
+	HuffmanCodes1 []common.HuffMapping
 }
 
 func readHeader(data []byte) (Header, error) {
@@ -319,6 +322,7 @@ type SOF3Component struct {
 	QuantizationTable        uint8
 }
 
+// SOF3Header - start of frame header
 type SOF3Header struct {
 	Marker                    uint16
 	Length                    uint16
@@ -335,6 +339,7 @@ type SOSComponent struct {
 	ACTable  uint8
 }
 
+// SOSHeader - start of scan header
 type SOSHeader struct {
 	Marker                              uint16
 	Length                              uint16
@@ -363,6 +368,8 @@ func hammingDistance(a, b []byte) (int, error) {
 	}
 	return diff, nil
 }
+
+// SOF3 start of frame
 func parseSOF3Header(data []byte, offset int64) (SOF3Header, int64, error) {
 	//log.Printf("SOF3 header offset %d", offset)
 
@@ -477,20 +484,23 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 
 	huffBytes := data[offset : offset+int64(length-2)]
 	huffMapping0, huffMapping1 := common.DecodeHuffTree(huffBytes)
-	log.Printf("huffMapping0 %v", huffMapping0)
-	log.Printf("huffMapping1 %v", huffMapping1)
 
 	sof3Header, offset2, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
 	if err != nil {
-		log.Printf("%v", err)
+		return LosslessJPG{}, offset2, err
 	}
 
 	sosHeader, offset3, err := parseSOSHeader(data, offset2)
 	if err != nil {
-		log.Printf("%v", err)
+		return LosslessJPG{}, offset3, err
 	}
 
-	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header, SOSHeader: sosHeader}
+	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header,
+		SOSHeader:     sosHeader,
+		HuffmanCodes0: huffMapping0,
+		HuffmanCodes1: huffMapping1,
+	}
+
 	return losslessJPG, offset3, nil
 }
 
