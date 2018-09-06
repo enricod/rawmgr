@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,6 +102,21 @@ func data1() []byte {
 	return data
 }
 
+func TestShiftBytes(t *testing.T) {
+	assert := assert.New(t)
+
+	mybytes := []byte{0x00, 0x00, 0xff, 0x1f, 0x7f, 0xa4, 0x99, 0x12}
+	num := binary.BigEndian.Uint64(mybytes)
+	assert.Equal(uint64(0xff1f7fa49912), num, "")
+
+	v := uint64(1)
+	v2 := v << 1
+	assert.Equal(uint64(2), uint64(v2), "offset must be 2")
+
+	v = 4
+	v2 = v >> 1
+	assert.Equal(uint64(2), uint64(v2), "offset must be 2")
+}
 func TestGetHuffItems(t *testing.T) {
 	assert := assert.New(t)
 
