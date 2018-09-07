@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 )
@@ -219,4 +220,15 @@ func PopFirst(s []byte) (byte, []byte) {
 	copy(s, s[1:])
 	s2 := s[:len(s)-1]
 	return first, s2
+}
+
+func HuffGetMapping(huffMappings []HuffMapping, code uint64) (HuffMapping, error) {
+
+	for i := len(huffMappings) - 1; i >= 0; i-- {
+		h := huffMappings[i]
+		if h.Code == code {
+			return h, nil
+		}
+	}
+	return HuffMapping{}, fmt.Errorf("code not found %d", code)
 }

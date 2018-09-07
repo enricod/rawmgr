@@ -110,17 +110,42 @@ func TestShiftBytes(t *testing.T) {
 
 	assert.Equal(16, len(huffMappings), "")
 
-	mybytes := []byte{0x00, 0x00, 0xff, 0x1f, 0x7f, 0xa4, 0x99, 0x12}
+	mybytes := []byte{0xff, 0x00, 0xff, 0xfc, 0x00, 0xef, 0xf7, 0x00}
 	num := binary.BigEndian.Uint64(mybytes)
-	assert.Equal(uint64(0xff1f7fa49912), num, "")
+	assert.Equal(uint64(0xff00fffc00eff700), num, "")
 
-	v := uint64(1)
-	v2 := v << 1
-	assert.Equal(uint64(2), uint64(v2), "offset must be 2")
+}
 
-	v = 4
-	v2 = v >> 1
-	assert.Equal(uint64(2), uint64(v2), "offset must be 2")
+func TestHuffFindMapping(t *testing.T) {
+	assert := assert.New(t)
+	data := data1()
+
+	huffMappings, _ := DecodeHuffTree(data)
+
+	m, err := HuffGetMapping(huffMappings, 1022)
+	assert.Nil(err)
+	assert.Equal(0x0C, int(m.Value), "")
+
+	m, err = HuffGetMapping(huffMappings, 2)
+	assert.Nil(err)
+	assert.Equal(0x01, int(m.Value), "")
+
+	m, err = HuffGetMapping(huffMappings, 6)
+	assert.Nil(err)
+	assert.Equal(0x05, int(m.Value), "")
+
+	m, err = HuffGetMapping(huffMappings, 30)
+	assert.Nil(err)
+	assert.Equal(0x07, int(m.Value), "")
+
+	m, err = HuffGetMapping(huffMappings, 8190)
+	assert.Nil(err)
+	assert.Equal(0x0f, int(m.Value), "")
+
+	// not found in mapping table
+	m, err = HuffGetMapping(huffMappings, 8062)
+	assert.NotNil(err)
+
 }
 func TestGetHuffItems(t *testing.T) {
 	assert := assert.New(t)
