@@ -530,9 +530,40 @@ func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	}
 	return mybytes, offset + int64(i)
 }
+
+func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffMapping, error) {
+	if mycode == uint64(0) {
+		return common.HuffMapping{}, fmt.Errorf("not found")
+	}
+
+	myvalue, err := common.HuffGetMapping(mappings, mycode)
+
+	if err != nil {
+		return findHuffMapping(mappings, mycode>>1)
+	} else {
+		return myvalue, nil
+	}
+}
+
+// if first bit == 0, then do reverse
+func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
+	mask := uint64(math.Pow(2, float64(bitNr)))
+
+	fmt.Printf("a = %13b, mask = %13b, a & mask = %13b \n", a, mask, a&mask)
+	if a&mask == 0 {
+		var b uint64
+		mask2 := uint64(math.Pow(2, float64(bitNr))) - 1
+		b = a ^ mask2
+
+		fmt.Printf("mask2=%13b, reverse a = %13b \n", mask2, b)
+		return b
+	}
+	return a
+}
+
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
 
-	initialValue := uint32(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
+	initialValue := uint64(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
 	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
@@ -549,10 +580,22 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	for _, h := range loselessJPG.HuffmanCodes1 {
 		log.Printf("HUFF1 | %d %02b => %v", h.BitCount, h.Code, h.Value)
 	}
+
 	// PROVVISORIO
-	for j := 0; j < 10; j++ {
-		mybytes, pos = extractFirstBytes(data, pos, 6)
-		log.Printf("pos=%d, bytes %v", pos, mybytes)
+	for j := 0; j < 1; j++ {
+		mybytes, pos = extractFirstBytes(data, pos, 8)
+		fullvalue := binary.BigEndian.Uint64(mybytes)
+		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
+		myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes0, binary.BigEndian.Uint64(mybytes))
+		if err != nil {
+			log.Printf("ERRORE")
+		}
+		log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
+		fullvalue = fullvalue << uint(myHuffCode.BitCount)
+		fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
+		fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
+
+		log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
 	}
 
 	return nil
