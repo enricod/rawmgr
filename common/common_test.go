@@ -197,28 +197,28 @@ func TestDecodeHuffTree(t *testing.T) {
 
 	// 2 bits
 	assert.Equal(huffMapping0[0].BitCount, 2, "")
-	assert.Equal(huffMapping0[0].Code, uint32(0), "")
+	assert.Equal(huffMapping0[0].Code, uint64(0), "")
 	assert.Equal(huffMapping0[0].Value, uint8(0x00), "")
 
 	// 3 bits, first value
 	assert.Equal(huffMapping0[1].BitCount, 3, "")
-	assert.Equal(huffMapping0[1].Code, uint32(2), "")
+	assert.Equal(huffMapping0[1].Code, uint64(2), "")
 	assert.Equal(huffMapping0[1].Value, uint8(1), "")
 
 	assert.Equal(3, huffMapping0[2].BitCount, "")
-	assert.Equal(huffMapping0[2].Code, uint32(3), "")
+	assert.Equal(huffMapping0[2].Code, uint64(3), "")
 	assert.Equal(huffMapping0[2].Value, uint8(2), "")
 
 	assert.Equal(6, huffMapping0[8].BitCount, "")
-	assert.Equal(uint32(62), huffMapping0[8].Code, "")
+	assert.Equal(uint64(62), huffMapping0[8].Code, "")
 	assert.Equal(uint8(8), huffMapping0[8].Value, "")
 
 	assert.Equal(13, huffMapping0[15].BitCount, "")
-	assert.Equal(uint32(8190), huffMapping0[15].Code, "")
+	assert.Equal(uint64(8190), huffMapping0[15].Code, "")
 	assert.Equal(uint8(15), huffMapping0[15].Value, "")
 
 	// 2 bits
 	assert.Equal(huffMapping1[0].BitCount, 2, "")
-	assert.Equal(uint32(0), huffMapping1[0].Code, "")
+	assert.Equal(uint64(0), huffMapping1[0].Code, "")
 	assert.Equal(uint8(0x00), huffMapping1[0].Value, "")
 }
