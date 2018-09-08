@@ -480,7 +480,7 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 
 	dhtHeader.Marker = marker
 
-	log.Printf("length offset %d", offset2)
+	// log.Printf("length offset %d", offset2)
 	length, offset2 := common.ReadUint16(data, offset2)
 	dhtHeader.Length = length
 
@@ -545,17 +545,20 @@ func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffM
 	}
 }
 
+// pow2 return 2^exp as uint64
+func pow2(exp int) uint64 {
+	return uint64(math.Pow(2, float64(exp)))
+}
+
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
-	mask := uint64(math.Pow(2, float64(bitNr)))
-
-	fmt.Printf("a = %13b, mask = %13b, a & mask = %13b \n", a, mask, a&mask)
+	mask := pow2(bitNr)
+	// fmt.Printf("a = %13b, mask = %13b, a & mask = %13b \n", a, mask, a&mask)
 	if a&mask == 0 {
 		var b uint64
-		mask2 := uint64(math.Pow(2, float64(bitNr))) - 1
+		mask2 := pow2(bitNr) - 1
 		b = a ^ mask2
-
-		fmt.Printf("mask2=%13b, reverse a = %13b \n", mask2, b)
+		// fmt.Printf("mask2=%13b, reverse a = %13b \n", mask2, b)
 		return b
 	}
 	return a
@@ -573,13 +576,13 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	pos := offset
 	var mybytes []byte
 
-	for _, h := range loselessJPG.HuffmanCodes0 {
-		log.Printf("HUFF0 | %d %02b => %v", h.BitCount, h.Code, h.Value)
-	}
+	//for _, h := range loselessJPG.HuffmanCodes0 {
+	//	log.Printf("HUFF0 | %d %02b => %v", h.BitCount, h.Code, h.Value)
+	//}
 
-	for _, h := range loselessJPG.HuffmanCodes1 {
-		log.Printf("HUFF1 | %d %02b => %v", h.BitCount, h.Code, h.Value)
-	}
+	//for _, h := range loselessJPG.HuffmanCodes1 {
+	//	log.Printf("HUFF1 | %d %02b => %v", h.BitCount, h.Code, h.Value)
+	//}
 
 	// PROVVISORIO
 	for j := 0; j < 1; j++ {
