@@ -11,6 +11,7 @@ import (
 // Verbose true if you want more output
 var Verbose *bool
 
+// LittleEndian value
 const LittleEndian = 0x4949
 
 func check(e error) {
@@ -48,6 +49,7 @@ func ReadUint8(data []byte, offset int64) (uint8, int64) {
 	return uint8(data[offset]), offset + 1
 }
 
+// ReadUint32 reads 4 bytes, coverts to uint32
 func ReadUint32(data []byte, order uint16, offset int64) (uint32, int64) {
 	var b1 = data[offset : offset+4]
 	return binary.BigEndian.Uint32(b1), offset + 4
@@ -59,6 +61,7 @@ func GetUint16(f *os.File, offset int64) (uint16, int64) {
 	return value, offset + 2
 }
 
+// GetUint32 reads 4 bytes, coverts to uint32
 func GetUint32(f *os.File, offset int64) (uint32, int64) {
 	value := binary.BigEndian.Uint32(readFromFileBytes(f, offset, 4))
 	return value, offset + 4
@@ -86,12 +89,13 @@ func GetUint32WithOrder(f *os.File, order uint16, offset int64) (uint32, int64) 
 	return value, offset + 4
 }
 
+// Get1Byte reads from file 1 byte and returns an uint16
 func Get1Byte(f *os.File, offset int64) (uint16, int64) {
 	mybyte := readFromFileBytes(f, offset, 1)[0]
 	return uint16(mybyte), offset + 1
 }
 
-// GetInt
+// GetInt reads from the file 2 bytes ... incomplete and undocumented, to be deleted
 func GetInt(f *os.File, order uint16, offset int64, typ uint16) (int64, int64) {
 	if typ == 3 {
 		v, start := GetUint16WithOrder(f, order, offset)
@@ -111,6 +115,7 @@ func readFromFileBytes(f *os.File, start int64, howmany int64) []byte {
 	return retBytes
 }
 
+// HuffItem item in huffman tree
 type HuffItem struct {
 	BitLength int
 	Count     int
@@ -166,6 +171,7 @@ func NSpaces(spaces int) string {
 	return buffer.String()
 }
 
+// HuffMapping mapping between a bitq sequence and a byte, used in Huffman decoding
 type HuffMapping struct {
 	BitCount int
 	Value    byte
@@ -202,16 +208,17 @@ func decodeHuff(huffItems []HuffItem) []HuffMapping {
 }
 
 // DecodeHuffTree builds Huffman table (starts at the 5th byte in header)
-func DecodeHuffTree(data []byte) ([]HuffMapping, []HuffMapping) {
+func DecodeHuffTree(data []byte) [][]HuffMapping {
 
+	result := [][]HuffMapping{}
 	huffIems0, offset := GetHuffItems(data, 5)
-	mapping0 := decodeHuff(huffIems0)
+	result = append(result, decodeHuff(huffIems0))
 
 	// fixme
 	huffItems1, _ := GetHuffItems(data, offset+1)
-	mapping1 := decodeHuff(huffItems1)
+	result = append(result, decodeHuff(huffItems1))
 
-	return mapping0, mapping1
+	return result
 }
 
 // PopFirst extracts first byte from array
@@ -222,6 +229,7 @@ func PopFirst(s []byte) (byte, []byte) {
 	return first, s2
 }
 
+// HuffGetMapping given the mappings and a values, return the mapping matching, error if not found
 func HuffGetMapping(huffMappings []HuffMapping, code uint64) (HuffMapping, error) {
 
 	for i := len(huffMappings) - 1; i >= 0; i-- {

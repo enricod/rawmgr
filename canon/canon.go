@@ -1,6 +1,7 @@
 package canon
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"os"
 
+	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
 )
 
@@ -88,11 +90,10 @@ type DHTHeader struct {
 }
 
 type LosslessJPG struct {
-	DHTHeader     DHTHeader
-	SOF3Header    SOF3Header
-	SOSHeader     SOSHeader
-	HuffmanCodes0 []common.HuffMapping
-	HuffmanCodes1 []common.HuffMapping
+	DHTHeader    DHTHeader
+	SOF3Header   SOF3Header
+	SOSHeader    SOSHeader
+	HuffmanCodes [][]common.HuffMapping
 }
 
 func readHeader(data []byte) (Header, error) {
@@ -485,7 +486,7 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	dhtHeader.Length = length
 
 	huffBytes := data[offset : offset+int64(length-2)]
-	huffMapping0, huffMapping1 := common.DecodeHuffTree(huffBytes)
+	huffMappings := common.DecodeHuffTree(huffBytes)
 
 	sof3Header, offset2, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
 	if err != nil {
@@ -498,9 +499,8 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	}
 
 	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header,
-		SOSHeader:     sosHeader,
-		HuffmanCodes0: huffMapping0,
-		HuffmanCodes1: huffMapping1,
+		SOSHeader:    sosHeader,
+		HuffmanCodes: huffMappings,
 	}
 
 	return losslessJPG, offset3, nil
@@ -515,6 +515,7 @@ func getRawSlice(ifd IFDs) (rawSlice, error) {
 	return rawSlice{}, errors.New("raw slice not found")
 }
 
+// if  0xff00 is followed by 0x00 we return only 0xff
 func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	mybytes := []byte{}
 
@@ -564,7 +565,30 @@ func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	return a
 }
 
+func searchHuffCode(data []byte, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
+	intialnr := 64
+
+	for intialnr > 0 {
+		bitreader := bitstream.NewReader(bytes.NewReader(data))
+		value, err := bitreader.ReadBits(intialnr)
+		if err != nil {
+			return common.HuffMapping{}, err
+		}
+		huffMapping, err2 := common.HuffGetMapping(huffMappings, value)
+		if err2 != nil {
+			intialnr--
+		} else {
+			return huffMapping, nil
+		}
+
+	}
+	return common.HuffMapping{}, fmt.Errorf("not found")
+}
+
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
+
+	rawbytes := data[offset:]
+	bitreader := bitstream.NewReader(bytes.NewReader(rawbytes))
 
 	initialValue := uint64(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
 	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
@@ -573,33 +597,51 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		return err
 	}
 	log.Printf("rawSlice %v", rawSlice)
-	pos := offset
-	var mybytes []byte
 
-	//for _, h := range loselessJPG.HuffmanCodes0 {
-	//	log.Printf("HUFF0 | %d %02b => %v", h.BitCount, h.Code, h.Value)
-	//}
+	componentNr := 0
 
-	//for _, h := range loselessJPG.HuffmanCodes1 {
-	//	log.Printf("HUFF1 | %d %02b => %v", h.BitCount, h.Code, h.Value)
-	//}
-
-	// PROVVISORIO
-	for j := 0; j < 1; j++ {
-		mybytes, pos = extractFirstBytes(data, pos, 8)
-		fullvalue := binary.BigEndian.Uint64(mybytes)
-		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
-		myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes0, binary.BigEndian.Uint64(mybytes))
-		if err != nil {
-			log.Printf("ERRORE")
-		}
-		log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
-		fullvalue = fullvalue << uint(myHuffCode.BitCount)
-		fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
-		fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
-
-		log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
+	huffMapping, err := searchHuffCode(rawbytes, loselessJPG.HuffmanCodes[componentNr])
+	if err != nil {
+		return err
 	}
+
+	value, err := bitreader.ReadBits(huffMapping.BitCount)
+	log.Printf("%d", value)
+	/*
+		// PROVVISORIO
+		for j := 0; j < 1; j++ {
+			mybytes, pos = extractFirstBytes(data, pos, 8)
+			fullvalue := binary.BigEndian.Uint64(mybytes)
+			log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
+			myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
+			if err != nil {
+				log.Printf(err.Error())
+			}
+			log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
+			fullvalue = fullvalue << uint(myHuffCode.BitCount)
+			fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
+			fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
+
+			log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
+			bs := make([]byte, 2)
+			binary.LittleEndian.PutUint16(bs, uint16(initialValue-fullvalue))
+			rawData = append(rawData, bs...)
+			log.Printf("rawData= %v", rawData)
+
+			// TODO passa a componente successiva
+			componentNr++
+			if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
+				componentNr = 0
+			}
+
+			// calcola nuova posizione
+			nbits := myHuffCode.BitCount + int(myHuffCode.Value)
+			nbytes := nbits / 8
+			nbytesmod := nbits % 8
+			log.Printf("nbits=%d, nbytes=%d, nbytesmod=%d", nbits, nbytes, nbytesmod)
+		}
+
+	*/
 
 	return nil
 }
