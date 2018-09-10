@@ -1,7 +1,6 @@
 package canon
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"math"
 	"os"
 
-	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
 )
 
@@ -565,30 +563,9 @@ func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	return a
 }
 
-func searchHuffCode(data []byte, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
-	intialnr := 64
-
-	for intialnr > 0 {
-		bitreader := bitstream.NewReader(bytes.NewReader(data))
-		value, err := bitreader.ReadBits(intialnr)
-		if err != nil {
-			return common.HuffMapping{}, err
-		}
-		huffMapping, err2 := common.HuffGetMapping(huffMappings, value)
-		if err2 != nil {
-			intialnr--
-		} else {
-			return huffMapping, nil
-		}
-
-	}
-	return common.HuffMapping{}, fmt.Errorf("not found")
-}
-
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
 
-	rawbytes := data[offset:]
-	bitreader := bitstream.NewReader(bytes.NewReader(rawbytes))
+	//bitreader := bitstream.NewReader(bytes.NewReader(rawbytes))
 
 	initialValue := uint64(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
 	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
@@ -600,48 +577,43 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	componentNr := 0
 
-	huffMapping, err := searchHuffCode(rawbytes, loselessJPG.HuffmanCodes[componentNr])
-	if err != nil {
-		return err
-	}
+	rawData := []byte{}
+	mybytes := []byte{}
+	var pos int64
 
-	value, err := bitreader.ReadBits(huffMapping.BitCount)
-	log.Printf("%d", value)
-	/*
-		// PROVVISORIO
-		for j := 0; j < 1; j++ {
-			mybytes, pos = extractFirstBytes(data, pos, 8)
-			fullvalue := binary.BigEndian.Uint64(mybytes)
-			log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
-			myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
-			if err != nil {
-				log.Printf(err.Error())
-			}
-			log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
-			fullvalue = fullvalue << uint(myHuffCode.BitCount)
-			fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
-			fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
+	// PROVVISORIO
+	for j := 0; j < 1; j++ {
+		mybytes, pos = extractFirstBytes(data, pos, 8)
+		fullvalue := binary.BigEndian.Uint64(mybytes)
+		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
+		myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
 
-			log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
-			bs := make([]byte, 2)
-			binary.LittleEndian.PutUint16(bs, uint16(initialValue-fullvalue))
-			rawData = append(rawData, bs...)
-			log.Printf("rawData= %v", rawData)
+		if err != nil {
+			log.Printf(err.Error())
+		}
+		log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
+		fullvalue = fullvalue << uint(myHuffCode.BitCount)
+		fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
+		fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
 
-			// TODO passa a componente successiva
-			componentNr++
-			if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
-				componentNr = 0
-			}
+		log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
+		bs := make([]byte, 2)
+		binary.LittleEndian.PutUint16(bs, uint16(initialValue-fullvalue))
+		rawData = append(rawData, bs...)
+		log.Printf("rawData= %v, %08d", rawData, rawData)
 
-			// calcola nuova posizione
-			nbits := myHuffCode.BitCount + int(myHuffCode.Value)
-			nbytes := nbits / 8
-			nbytesmod := nbits % 8
-			log.Printf("nbits=%d, nbytes=%d, nbytesmod=%d", nbits, nbytes, nbytesmod)
+		// TODO passa a componente successiva
+		componentNr++
+		if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
+			componentNr = 0
 		}
 
-	*/
+		// calcola nuova posizione
+		nbits := myHuffCode.BitCount + int(myHuffCode.Value)
+		nbytes := nbits / 8
+		nbytesmod := nbits % 8
+		log.Printf("nbits=%d, nbytes=%d, nbytesmod=%d", nbits, nbytes, nbytesmod)
+	}
 
 	return nil
 }
