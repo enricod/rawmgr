@@ -553,14 +553,10 @@ func pow2(exp int) uint64 {
 
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
-	mask := pow2(bitNr)
-	// fmt.Printf("a = %13b, mask = %13b, a & mask = %13b \n", a, mask, a&mask)
+	mask := pow2(bitNr) >> 1
+	log.Printf("a=%b, mask=%b, a&b=%b", a, mask, a&mask)
 	if a&mask == 0 {
-		var b uint64
-		mask2 := pow2(bitNr) - 1
-		b = a ^ mask2
-		// fmt.Printf("mask2=%13b, reverse a = %13b \n", mask2, b)
-		return b
+		return uint64(pow2(bitNr)-1) - a
 	}
 	return a
 }
@@ -576,9 +572,8 @@ func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []co
 	h, err2 := common.HuffGetMapping(huffMappings, v)
 	if err2 != nil {
 		return findHuffCode(data, bitsOffset, bitsLength-1, huffMappings)
-	} else {
-		return h, nil
 	}
+	return h, nil
 }
 
 // 0xff 0x00 becomes 0xff
@@ -588,7 +583,6 @@ func cleanStream(data []byte) []byte {
 		if !(b == 0x00 && data[i-1] == 0xff) {
 			result = append(result, b)
 		}
-
 	}
 	return result
 }
@@ -615,14 +609,17 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
 
 	// PROVVISORIO
-	for j := 0; j < 1; j++ {
-		huffCode, err := findHuffCode(cleanedData, bitsOffset, 17, loselessJPG.HuffmanCodes[0])
+	for j := 0; j < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); j++ {
+
+		log.Printf("============= STEP %d ===============", j)
+		log.Printf("bitsOffset = %d", bitsOffset)
+		huffCode, err := findHuffCode(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[0])
 		if err != nil {
 			log.Printf(err.Error())
 		}
 		log.Printf("%v", huffCode)
-		bitsOffset += huffCode.BitCount
 
+		// already read huffCode.BitCount bits
 		bitreader.ReadBits(huffCode.BitCount)
 		val2, err := bitreader.ReadBits(int(huffCode.Value))
 
@@ -632,24 +629,26 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			log.Printf(err.Error())
 		}
 
-		//log.Printf("bit count=%d, nr di bit da prendere=%d", huffCode.BitCount, int(huffCode.Value))
-		// FIXME questo è sbagliato, devo prendere il primo bit utile
-		val3 := uint64(pow2(int(huffCode.Value)) - 1)
+		val3 := reverseBitsIfNecessary(val2, int(huffCode.Value))
+		log.Printf("val2=%13b, val3=%13b", val2, val3)
+		var val4 uint64
+		if val3 == val2 {
+			// highest bit = 1
+			val4 = initialValue + val3
+		} else {
+			// highest bit = 0
+			val4 = initialValue - val3
+		}
 
-		//}
-		log.Printf("val2 = %13b, %13b, val3-val2 = %13b", val2, val3, val3-val2)
-		val4 := val3 - val2
-		log.Printf("val4 = %d,", val4)
-
-		val5 := initialValue - val4
-
+		// costruiamo byte per immagine finale
 		val5Bytes := make([]byte, 2)
-		binary.BigEndian.PutUint16(val5Bytes, uint16(val5))
-		log.Printf("val5 = %d, %16b, %v", val5, val5, val5Bytes)
+		binary.LittleEndian.PutUint16(val5Bytes, uint16(val4))
+		log.Printf("val4 = %d,  %v", val4, val5Bytes)
 
 		rawData = append(rawData, val5Bytes...)
 		log.Printf(" %v  ", rawData)
 
+		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 	}
 
 	return nil
