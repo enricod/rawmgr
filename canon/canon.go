@@ -390,6 +390,8 @@ func parseSOF3Header(data []byte, offset int64) (SOF3Header, int64, error) {
 	samplePrecision, offset2 := common.ReadUint8(data, offset2)
 	sof3Header.SamplePrecision = samplePrecision
 
+	log.Printf("SOF3 samplePrecision=%d", samplePrecision)
+
 	nrLines, offset2 := common.ReadUint16(data, offset2)
 	sof3Header.NrLines = nrLines
 
@@ -438,6 +440,7 @@ func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
 
 	nrComponents, offset2 := common.ReadUint8(data, offset2)
 	sosHeader.NrComponents = nrComponents
+	log.Printf("SOS  nrComponents=%d", nrComponents)
 
 	// let's read each component
 	components := []SOSComponent{}
@@ -453,6 +456,8 @@ func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
 			DCTable: uint8(samplingByte >> 4),
 			ACTable: uint8(samplingByte & 0x0f),
 		}
+
+		log.Printf("SOS  component # %d, table=%d", comp.Selector, comp.DCTable)
 		components = append(components, comp)
 	}
 	sosHeader.Components = components
