@@ -610,8 +610,6 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	//componentNr := 0
 
 	rawData := []byte{}
-	mybytes := []byte{}
-	pos := int64(0)
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
@@ -625,29 +623,17 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		log.Printf("%v", huffCode)
 		bitsOffset += huffCode.BitCount
 
-		val, err := bitreader.ReadBits(huffCode.BitCount)
+		bitreader.ReadBits(huffCode.BitCount)
 		val2, err := bitreader.ReadBits(int(huffCode.Value))
 
 		log.Printf("val2=%d, %13b", val2, val2)
-		//mybytes, pos = extractFirstBytes(data, pos, 8)
-		//fullvalue := binary.BigEndian.Uint64(mybytes)
-		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, val)
-		// FIXME la scelta dell'algoritmo deve essere presa dalle definizioni dei componenti
-		//myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
 
 		if err != nil {
 			log.Printf(err.Error())
 		}
 
-		// da qui in poi tutto rotto
-		log.Printf("bit count=%d, nr di bit da prendere=%d", huffCode.BitCount, int(huffCode.Value))
-		/*
-			val2Bytes := make([]byte, 2)
-			binary.BigEndian.PutUint16(val2Bytes, uint16(val2))
-			log.Printf("val2bytes = %v ", val2Bytes)
-		*/
+		//log.Printf("bit count=%d, nr di bit da prendere=%d", huffCode.BitCount, int(huffCode.Value))
 		// FIXME questo è sbagliato, devo prendere il primo bit utile
-		//if val2Bytes[val-8]>>(val-8-1) == 0x00 {
 		val3 := uint64(pow2(int(huffCode.Value)) - 1)
 
 		//}
