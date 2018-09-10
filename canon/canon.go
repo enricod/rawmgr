@@ -593,24 +593,6 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
-func reverseBits(b byte) byte {
-	var d byte
-	for i := 0; i < 8; i++ {
-		d <<= 1
-		d |= b & 1
-		b >>= 1
-	}
-	return d
-}
-
-func reverseBitsInArray(bs []byte) []byte {
-	result := []byte{}
-	for _, b := range bs {
-		result = append(result, reverseBits(b))
-	}
-	return result
-}
-
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
 
 	cleanedData := cleanStream(data[offset:])
@@ -627,7 +609,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	//componentNr := 0
 
-	//rawData := []byte{}
+	rawData := []byte{}
 	mybytes := []byte{}
 	pos := int64(0)
 	bitsOffset := 0
@@ -663,34 +645,25 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			val2Bytes := make([]byte, 2)
 			binary.BigEndian.PutUint16(val2Bytes, uint16(val2))
 			log.Printf("val2bytes = %v ", val2Bytes)
-			if val2Bytes[0]>>3 == 0x00 {
-				val2Bytes = reverseBitsInArray(val2Bytes)
-			}
-			log.Printf("val2bytes (dopo reverse) = %v ", val2Bytes)
 		*/
-		/*
-			val2 = val2 << uint(huffCode.BitCount)
-			val2 = val2 >> uint(64-int(huffCode.Value))
-			val2 = reverseBitsIfNecessary(val2, int(huffCode.Value))
+		// FIXME questo è sbagliato, devo prendere il primo bit utile
+		//if val2Bytes[val-8]>>(val-8-1) == 0x00 {
+		val3 := uint64(pow2(int(huffCode.Value)) - 1)
 
-			log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", val2, initialValue-val2, initialValue-val2)
-			bs := make([]byte, 2)
-			binary.LittleEndian.PutUint16(bs, uint16(initialValue-val2))
-			rawData = append(rawData, bs...)
-			log.Printf("rawData= %v, bs = %v", rawData, bs)
+		//}
+		log.Printf("val2 = %13b, %13b, val3-val2 = %13b", val2, val3, val3-val2)
+		val4 := val3 - val2
+		log.Printf("val4 = %d,", val4)
 
-			// TODO passa a componente successiva
-			componentNr++
-			if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
-				componentNr = 0
-			}
+		val5 := initialValue - val4
 
-			// calcola nuova posizione
-			moveBits := huffCode.BitCount + int(huffCode.Value)
-			nbytes := moveBits / 8
-			nbytesmod := moveBits % 8
-			log.Printf("moveBits=%d, nbytes=%d, nbytesmod=%d", moveBits, nbytes, nbytesmod)
-		*/
+		val5Bytes := make([]byte, 2)
+		binary.BigEndian.PutUint16(val5Bytes, uint16(val5))
+		log.Printf("val5 = %d, %16b, %v", val5, val5, val5Bytes)
+
+		rawData = append(rawData, val5Bytes...)
+		log.Printf(" %v  ", rawData)
+
 	}
 
 	return nil
