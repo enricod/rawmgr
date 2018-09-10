@@ -1,6 +1,7 @@
 package canon
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"os"
 
+	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
 )
 
@@ -513,7 +515,7 @@ func getRawSlice(ifd IFDs) (rawSlice, error) {
 	return rawSlice{}, errors.New("raw slice not found")
 }
 
-// if  0xff00 is followed by 0x00 we return only 0xff
+// if  0xff00 is followed by 0x00 we return only 0xff - deprecated
 func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	mybytes := []byte{}
 
@@ -563,11 +565,40 @@ func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	return a
 }
 
+func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
+	bitreader := bitstream.NewReader(bytes.NewReader(data))
+	bitreader.ReadBits(bitsOffset)
+	v, err := bitreader.ReadBits(bitsLength)
+	if err != nil {
+		return common.HuffMapping{}, err
+	}
+
+	h, err2 := common.HuffGetMapping(huffMappings, v)
+	if err2 != nil {
+		return findHuffCode(data, bitsOffset, bitsLength-1, huffMappings)
+	} else {
+		return h, nil
+	}
+}
+
+// 0xff 0x00 becomes 0xff
+func cleanStream(data []byte) []byte {
+	result := []byte{}
+	for i, b := range data {
+		if !(b == 0x00 && data[i-1] == 0xff) {
+			result = append(result, b)
+		}
+
+	}
+	return result
+}
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
 
-	//bitreader := bitstream.NewReader(bytes.NewReader(rawbytes))
+	cleanedData := cleanStream(data[offset:])
+	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	initialValue := uint64(math.Pow(2, float64(loselessJPG.SOF3Header.SamplePrecision-1)))
+	initialValue := pow2(int(loselessJPG.SOF3Header.SamplePrecision - 1))
+
 	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
@@ -579,27 +610,42 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	rawData := []byte{}
 	mybytes := []byte{}
-	pos := offset
+	pos := int64(0)
+	bitsOffset := 0
+
+	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
 
 	// PROVVISORIO
 	for j := 0; j < 1; j++ {
-		mybytes, pos = extractFirstBytes(data, pos, 8)
-		fullvalue := binary.BigEndian.Uint64(mybytes)
-		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
+		huffCode, err := findHuffCode(cleanedData, bitsOffset, 17, loselessJPG.HuffmanCodes[0])
+		if err != nil {
+			log.Printf(err.Error())
+		}
+		log.Printf("%v", huffCode)
+		bitsOffset += huffCode.BitCount
+
+		val, err := bitreader.ReadBits(huffCode.BitCount)
+		val2, err := bitreader.ReadBits(int(huffCode.Value))
+
+		//mybytes, pos = extractFirstBytes(data, pos, 8)
+		//fullvalue := binary.BigEndian.Uint64(mybytes)
+		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, val)
 		// FIXME la scelta dell'algoritmo deve essere presa dalle definizioni dei componenti
-		myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
+		//myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
 
 		if err != nil {
 			log.Printf(err.Error())
 		}
-		log.Printf("bit count=%d, nr di bit da prendere=%d", myHuffCode.BitCount, int(myHuffCode.Value))
-		fullvalue = fullvalue << uint(myHuffCode.BitCount)
-		fullvalue = fullvalue >> uint(64-int(myHuffCode.Value))
-		fullvalue = reverseBitsIfNecessary(fullvalue, int(myHuffCode.Value))
 
-		log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", fullvalue, initialValue-fullvalue, initialValue-fullvalue)
+		// da qui in poi tutto rotto
+		log.Printf("bit count=%d, nr di bit da prendere=%d", huffCode.BitCount, int(huffCode.Value))
+		val2 = val2 << uint(huffCode.BitCount)
+		val2 = val2 >> uint(64-int(huffCode.Value))
+		val2 = reverseBitsIfNecessary(val2, int(huffCode.Value))
+
+		log.Printf("valore calcolato= %d, newvalue=%d ( %08b )", val2, initialValue-val2, initialValue-val2)
 		bs := make([]byte, 2)
-		binary.LittleEndian.PutUint16(bs, uint16(initialValue-fullvalue))
+		binary.LittleEndian.PutUint16(bs, uint16(initialValue-val2))
 		rawData = append(rawData, bs...)
 		log.Printf("rawData= %v, bs = %v", rawData, bs)
 
@@ -610,10 +656,10 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 
 		// calcola nuova posizione
-		nbits := myHuffCode.BitCount + int(myHuffCode.Value)
-		nbytes := nbits / 8
-		nbytesmod := nbits % 8
-		log.Printf("nbits=%d, nbytes=%d, nbytesmod=%d", nbits, nbytes, nbytesmod)
+		moveBits := huffCode.BitCount + int(huffCode.Value)
+		nbytes := moveBits / 8
+		nbytesmod := moveBits % 8
+		log.Printf("moveBits=%d, nbytes=%d, nbytesmod=%d", moveBits, nbytes, nbytesmod)
 	}
 
 	return nil
