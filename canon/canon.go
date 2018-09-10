@@ -579,13 +579,14 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	rawData := []byte{}
 	mybytes := []byte{}
-	var pos int64
+	pos := offset
 
 	// PROVVISORIO
 	for j := 0; j < 1; j++ {
 		mybytes, pos = extractFirstBytes(data, pos, 8)
 		fullvalue := binary.BigEndian.Uint64(mybytes)
 		log.Printf("pos=%d, bytes %v, fullValue=%d", pos, mybytes, fullvalue)
+		// FIXME la scelta dell'algoritmo deve essere presa dalle definizioni dei componenti
 		myHuffCode, err := findHuffMapping(loselessJPG.HuffmanCodes[componentNr], binary.BigEndian.Uint64(mybytes))
 
 		if err != nil {
@@ -600,7 +601,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		bs := make([]byte, 2)
 		binary.LittleEndian.PutUint16(bs, uint16(initialValue-fullvalue))
 		rawData = append(rawData, bs...)
-		log.Printf("rawData= %v, %08d", rawData, rawData)
+		log.Printf("rawData= %v, bs = %v", rawData, bs)
 
 		// TODO passa a componente successiva
 		componentNr++
