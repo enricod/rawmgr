@@ -592,9 +592,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	cleanedData := cleanStream(data[offset:])
 	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	initialValue := common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision - 1))
-
-	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
+	previousValues := []uint64{}
+	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
+		previousValues = append(previousValues, common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1)))
+	}
+	log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
 		return err
@@ -608,10 +610,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
 
+	huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
-	for j := 0; j < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); j++ {
+	for j := 0; j < 2*int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); j++ {
 		log.Printf("============= STEP %d ===============", j)
-		log.Printf("bitsOffset = %d", bitsOffset)
+		log.Printf("bitsOffset = %d, previousValues=%v", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
 		log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
 
@@ -631,16 +634,12 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			log.Printf(err.Error())
 		}
 
-		val3 := reverseBitsIfNecessary(val2, int(huffCode.Value))
-		log.Printf("val2=%13b, val3=%13b", val2, val3)
-		var val4 uint64
-		if val3 == val2 {
-			// highest bit = 1
-			val4 = initialValue + val3
-		} else {
-			// highest bit = 0
-			val4 = initialValue - val3
+		huffDiff, err := huffDifferences.Find(uint8(huffCode.Value), uint16(val2))
+		log.Printf("huffDiff=%v", huffDiff)
+		if err != nil {
+			return err
 		}
+		val4 := uint64(int32(previousValues[componentNr]) + huffDiff.Diff)
 
 		// costruiamo byte per immagine finale
 		/*
@@ -652,12 +651,14 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		*/
 		rawData = append(rawData, val4)
 		log.Printf(" %v  ", rawData)
+		previousValues[componentNr] = val4
 
 		// prepare for next iteration
 		componentNr++
-		if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
+		if componentNr >= int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
 			componentNr = 0
 		}
+
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 	}
 	return nil
