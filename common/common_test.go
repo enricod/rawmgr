@@ -106,9 +106,11 @@ func TestShiftBytes(t *testing.T) {
 	assert := assert.New(t)
 
 	data := data1()
-	huffMappings, _ := DecodeHuffTree(data)
+	huffMappings := DecodeHuffTree(data)
 
-	assert.Equal(16, len(huffMappings), "")
+	huffMapping0 := huffMappings[0]
+
+	assert.Equal(16, len(huffMapping0), "")
 
 	mybytes := []byte{0xff, 0x00, 0xff, 0xfc, 0x00, 0xef, 0xf7, 0x00}
 	num := binary.BigEndian.Uint64(mybytes)
@@ -120,30 +122,31 @@ func TestHuffFindMapping(t *testing.T) {
 	assert := assert.New(t)
 	data := data1()
 
-	huffMappings, _ := DecodeHuffTree(data)
+	huffMappings := DecodeHuffTree(data)
+	huffMapping0 := huffMappings[0]
 
-	m, err := HuffGetMapping(huffMappings, 1022)
+	m, err := HuffGetMapping(huffMapping0, 1022)
 	assert.Nil(err)
 	assert.Equal(0x0C, int(m.Value), "")
 
-	m, err = HuffGetMapping(huffMappings, 2)
+	m, err = HuffGetMapping(huffMapping0, 2)
 	assert.Nil(err)
 	assert.Equal(0x01, int(m.Value), "")
 
-	m, err = HuffGetMapping(huffMappings, 6)
+	m, err = HuffGetMapping(huffMapping0, 6)
 	assert.Nil(err)
 	assert.Equal(0x05, int(m.Value), "")
 
-	m, err = HuffGetMapping(huffMappings, 30)
+	m, err = HuffGetMapping(huffMapping0, 30)
 	assert.Nil(err)
 	assert.Equal(0x07, int(m.Value), "")
 
-	m, err = HuffGetMapping(huffMappings, 8190)
+	m, err = HuffGetMapping(huffMapping0, 8190)
 	assert.Nil(err)
 	assert.Equal(0x0f, int(m.Value), "")
 
 	// not found in mapping table
-	m, err = HuffGetMapping(huffMappings, 8062)
+	m, err = HuffGetMapping(huffMapping0, 8062)
 	assert.NotNil(err)
 
 }
@@ -191,10 +194,12 @@ func TestDecodeHuffTree(t *testing.T) {
 	assert := assert.New(t)
 	data := data1()
 
-	huffMapping0, huffMapping1 := DecodeHuffTree(data)
-	assert.NotEmpty(huffMapping0)
-	assert.NotEmpty(huffMapping1)
+	huffMappings := DecodeHuffTree(data)
+	assert.NotEmpty(huffMappings[0])
+	assert.NotEmpty(huffMappings[1])
 
+	huffMapping0 := huffMappings[0]
+	huffMapping1 := huffMappings[1]
 	// 2 bits
 	assert.Equal(huffMapping0[0].BitCount, 2, "")
 	assert.Equal(huffMapping0[0].Code, uint64(0), "")
@@ -221,4 +226,28 @@ func TestDecodeHuffTree(t *testing.T) {
 	assert.Equal(huffMapping1[0].BitCount, 2, "")
 	assert.Equal(uint64(0), huffMapping1[0].Code, "")
 	assert.Equal(uint8(0x00), huffMapping1[0].Value, "")
+}
+
+func TestHuffDifferences(t *testing.T) {
+	assert := assert.New(t)
+
+	diffes := HuffDifferences()
+	assert.Equal(65535, len(diffes.Diffs), "")
+
+	// 101110 = 46 base10
+	d, _ := diffes.Find(14, uint16(46))
+	assert.Equal(int32(-16337), d.Diff, "")
+
+	// 15 = base10( 1111 )
+	d, _ = diffes.Find(4, uint16(15))
+	assert.Equal(int32(15), d.Diff, "")
+
+	// 32767 = base10( 111111111111111 )
+	d, _ = diffes.Find(15, uint16(32767))
+	assert.Equal(int32(32767), d.Diff, "")
+
+	// 32767 = base10( 111111111111111 )
+	d, _ = diffes.Find(15, uint16(0))
+	assert.Equal(int32(-32767), d.Diff, "")
+
 }

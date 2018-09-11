@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"os"
 
 	bitstream "github.com/dgryski/go-bitstream"
@@ -551,14 +550,9 @@ func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffM
 	}
 }
 
-// pow2 return 2^exp as uint64
-func pow2(exp int) uint64 {
-	return uint64(math.Pow(2, float64(exp)))
-}
-
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
-	p2 := pow2(bitNr)
+	p2 := common.Pow2(bitNr)
 	mask := p2 >> 1 // something like 100...00
 	if a&mask == 0 {
 		// if first bit == 0
@@ -598,7 +592,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	cleanedData := cleanStream(data[offset:])
 	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	initialValue := pow2(int(loselessJPG.SOF3Header.SamplePrecision - 1))
+	initialValue := common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision - 1))
 
 	log.Printf("scanRawData | offset=%d, initial value %d", offset, initialValue)
 	rawSlice, err := getRawSlice(aifd)

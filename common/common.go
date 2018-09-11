@@ -229,6 +229,11 @@ func PopFirst(s []byte) (byte, []byte) {
 	return first, s2
 }
 
+// pow2 return 2^exp as uint64
+func Pow2(exp int) uint64 {
+	return uint64(math.Pow(2, float64(exp)))
+}
+
 // HuffGetMapping given the mappings and a values, return the mapping matching, error if not found
 func HuffGetMapping(huffMappings []HuffMapping, code uint64) (HuffMapping, error) {
 
@@ -239,4 +244,44 @@ func HuffGetMapping(huffMappings []HuffMapping, code uint64) (HuffMapping, error
 		}
 	}
 	return HuffMapping{}, fmt.Errorf("code not found %d", code)
+}
+
+type HuffDiff struct {
+	BitCount uint8
+	Key      uint16
+	Diff     int32
+}
+
+type HuffDiffs struct {
+	Diffs []HuffDiff
+}
+
+func (r *HuffDiffs) Find(bitCount uint8, key uint16) (HuffDiff, error) {
+	for _, d := range r.Diffs {
+		if d.BitCount == bitCount && d.Key == key {
+			return d, nil
+		}
+	}
+	return HuffDiff{}, fmt.Errorf("not found")
+}
+
+func HuffDifferences() HuffDiffs {
+	result := []HuffDiff{}
+	result = append(result, HuffDiff{0, 0, 0})
+	for nbits := 1; nbits < 16; nbits++ {
+		tot := Pow2(nbits)
+		diff := -1 * int(tot-1)
+		key := 0
+		for v := 0; v < int(tot)/2; v++ {
+			result = append(result, HuffDiff{BitCount: uint8(nbits), Key: uint16(key), Diff: int32(diff + v)})
+			key++
+		}
+		diff = int(tot - tot/2)
+		for v := 0; v < int(tot)/2; v++ {
+			result = append(result, HuffDiff{BitCount: uint8(nbits), Key: uint16(key), Diff: int32(diff + v)})
+			key++
+		}
+
+	}
+	return HuffDiffs{result}
 }
