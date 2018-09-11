@@ -558,10 +558,11 @@ func pow2(exp int) uint64 {
 
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
-	mask := pow2(bitNr) >> 1
-	log.Printf("a=%b, mask=%b, a&b=%b", a, mask, a&mask)
+	p2 := pow2(bitNr)
+	mask := p2 >> 1 // something like 100...00
 	if a&mask == 0 {
-		return uint64(pow2(bitNr)-1) - a
+		// if first bit == 0
+		return uint64(p2-1) - a
 	}
 	return a
 }
@@ -608,7 +609,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	componentNr := 0
 
-	rawData := []byte{}
+	rawData := []uint64{}
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
@@ -648,11 +649,14 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 
 		// costruiamo byte per immagine finale
-		val5Bytes := make([]byte, 2)
-		binary.LittleEndian.PutUint16(val5Bytes, uint16(val4))
-		log.Printf("val4 = %d,  %v", val4, val5Bytes)
+		/*
+			val5Bytes := make([]byte, 2)
+			binary.LittleEndian.PutUint16(val5Bytes, uint16(val4))
+			log.Printf("val4 = %d,  %v", val4, val5Bytes)
 
-		rawData = append(rawData, val5Bytes...)
+			rawData = append(rawData, val5Bytes...)
+		*/
+		rawData = append(rawData, val4)
 		log.Printf(" %v  ", rawData)
 
 		// prepare for next iteration
