@@ -586,7 +586,7 @@ func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []co
 func cleanStream(data []byte) []byte {
 	result := []byte{}
 	for i, b := range data {
-		if !(b == 0x00 && data[i-1] == 0xff) {
+		if !(i > 0 && b == 0x00 && data[i-1] == 0xff) {
 			result = append(result, b)
 		}
 	}
