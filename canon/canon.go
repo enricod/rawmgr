@@ -606,7 +606,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	}
 	log.Printf("rawSlice %v", rawSlice)
 
-	//componentNr := 0
+	componentNr := 0
 
 	rawData := []byte{}
 	bitsOffset := 0
@@ -615,16 +615,18 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	// PROVVISORIO
 	for j := 0; j < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); j++ {
-
 		log.Printf("============= STEP %d ===============", j)
 		log.Printf("bitsOffset = %d", bitsOffset)
-		huffCode, err := findHuffCode(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[0])
+		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
+		log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
+
+		huffCode, err := findHuffCode(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
 		if err != nil {
 			log.Printf(err.Error())
 		}
 		log.Printf("%v", huffCode)
 
-		// already read huffCode.BitCount bits
+		// we already read huffCode.BitCount bits searching huffCode
 		bitreader.ReadBits(huffCode.BitCount)
 		val2, err := bitreader.ReadBits(int(huffCode.Value))
 
@@ -653,9 +655,13 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		rawData = append(rawData, val5Bytes...)
 		log.Printf(" %v  ", rawData)
 
+		// prepare for next iteration
+		componentNr++
+		if componentNr > int(loselessJPG.SOF3Header.NrImageComponentsPerFrame) {
+			componentNr = 0
+		}
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 	}
-
 	return nil
 }
 
