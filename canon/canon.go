@@ -587,7 +587,7 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
-func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) error {
+func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint64, error) {
 
 	cleanedData := cleanStream(data[offset:])
 	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
@@ -599,10 +599,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	log.Printf("rawSlice %v", rawSlice)
 
+	totPixels := rawSlice.Count*rawSlice.SliceSize + rawSlice.LastSliceSize
+	log.Printf("rawSlice %v, totPixels=%d", rawSlice, totPixels)
 	componentNr := 0
 
 	rawData := []uint64{}
@@ -612,7 +613,8 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
-	for j := 0; j < 2*int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); j++ {
+	for j := 0; j < 12; j++ {
+		// for j := 0; j < int(totPixels); j++ {
 		log.Printf("============= STEP %d ===============", j)
 		log.Printf("bitsOffset = %d, previousValues=%v", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
@@ -637,8 +639,9 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		huffDiff, err := huffDifferences.Find(uint8(huffCode.Value), uint16(val2))
 		log.Printf("huffDiff=%v", huffDiff)
 		if err != nil {
-			return err
+			return nil, err
 		}
+
 		val4 := uint64(int32(previousValues[componentNr]) + huffDiff.Diff)
 
 		// costruiamo byte per immagine finale
@@ -650,7 +653,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			rawData = append(rawData, val5Bytes...)
 		*/
 		rawData = append(rawData, val4)
-		log.Printf(" %v  ", rawData)
+
 		previousValues[componentNr] = val4
 
 		// prepare for next iteration
@@ -661,24 +664,26 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 	}
-	return nil
+
+	log.Printf(" %v  ", rawData)
+	return rawData, nil
 }
 
-func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) error {
+func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]uint64, error) {
 	startOffset, _ := getStartEndIFD0(aifd)
 
 	soiMarker, offset := common.ReadUint16(data, startOffset)
 	if soiMarker != 0xffd8 {
-		return fmt.Errorf("SOI Marker not valid  %d", soiMarker)
+		return nil, fmt.Errorf("SOI Marker not valid  %d", soiMarker)
 	}
 
 	loselessJPG, loselessJPGOffset, err := parseDHTHeader(data, offset)
 	check(err)
 	log.Printf("loselessJPG %v", loselessJPG)
 
-	scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
+	rawData, err := scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
 
-	return nil
+	return rawData, err
 }
 
 // ProcessCR2 start CR2 files
@@ -694,6 +699,15 @@ func ProcessCR2(data []byte) {
 	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
 	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
 
-	err = parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+	rawData, err := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+
+	f, err := os.Create("ifd_3.bin")
+	for _, d := range rawData {
+		binary.Write(f, binary.LittleEndian, d)
+	}
+
+	defer f.Close()
+
 	check(err)
+
 }
