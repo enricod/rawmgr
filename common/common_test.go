@@ -242,17 +242,29 @@ func TestHuffDifferences(t *testing.T) {
 	d, _ = diffes.Find(13, uint16(63))
 	assert.Equal(int32(-8128), d.Diff, "")
 
-	// 0111011111111
-	d, _ = diffes.Find(13, uint16(3839))
-	assert.Equal(int32(-4352), d.Diff, "")
+	// 0000000001110
+	d, _ = diffes.Find(13, uint16(14))
+	assert.Equal(int32(-8177), d.Diff, "")
 
 	// 15 = base10( 1111 )
 	d, _ = diffes.Find(4, uint16(15))
 	assert.Equal(int32(15), d.Diff, "")
 
+	d, _ = diffes.Find(13, uint16(7168))
+	assert.Equal(int32(7168), d.Diff, "")
+
+	d, _ = diffes.Find(11, uint16(792))
+	assert.Equal(int32(-1255), d.Diff, "")
+
+	d, _ = diffes.Find(13, uint16(6767))
+	assert.Equal(int32(6767), d.Diff, "")
+
 	// 32767 = base10( 111111111111111 )
 	d, _ = diffes.Find(15, uint16(32767))
 	assert.Equal(int32(32767), d.Diff, "")
+
+	d, _ = diffes.Find(1, uint16(1))
+	assert.Equal(int32(1), d.Diff, "")
 
 	// 32767 = base10( 111111111111111 )
 	d, _ = diffes.Find(15, uint16(0))
