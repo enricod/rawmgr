@@ -613,7 +613,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
-	for j := 0; j < 8; j++ {
+	for j := 0; j < 10; j++ {
 		// for j := 0; j < int(totPixels); j++ {
 		log.Printf("============= STEP %d ===============", j)
 		log.Printf("bitsOffset = %d, previousValues=%v", bitsOffset, previousValues)
