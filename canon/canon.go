@@ -587,14 +587,14 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
-func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint64, error) {
+func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint16, error) {
 
 	cleanedData := cleanStream(data[offset:])
 	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	previousValues := []uint64{}
+	previousValues := []uint16{}
 	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
-		previousValues = append(previousValues, common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1)))
+		previousValues = append(previousValues, uint16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1))))
 	}
 	log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
@@ -606,7 +606,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	log.Printf("rawSlice %v, totPixels=%d", rawSlice, totPixels)
 	componentNr := 0
 
-	rawData := []uint64{}
+	rawData := []uint16{}
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
@@ -642,7 +642,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			return nil, err
 		}
 
-		val4 := uint64(int32(previousValues[componentNr]) + huffDiff.Diff)
+		val4 := uint16(int32(previousValues[componentNr]) + huffDiff.Diff)
 
 		// costruiamo byte per immagine finale
 		/*
@@ -669,7 +669,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	return rawData, nil
 }
 
-func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]uint64, error) {
+func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]uint16, error) {
 	startOffset, _ := getStartEndIFD0(aifd)
 
 	soiMarker, offset := common.ReadUint16(data, startOffset)

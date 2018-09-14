@@ -1,0 +1,31 @@
+
+offset = 2414028
+
+| FF 00 | 00 FF | 00 FC | EF F7 | 00 3F | 98 C7 | FB 4D | FF 00 | 4F 1F | 1F F0 | FF 00 | FF 00 |
+
+FF 00 becomes FF, therefore
+
+| FF        00        | FF        | FC       | EF       F7       | 00 3F | 98 C7 | FB 4D | FF | 4F 1F | 1F F0 | FF | FF |
+| 11111111  0 0000000 | 111111 11 | 11111100 | 11101111 11110111 | 
+
+
+Component #0, let's find huff code 
+
+111111110  
+    => 9 bit, Value=13, Code=510 (0x1FE)
+
+let's read 13 bits 
+    => 000 000 0 111 111 = 63
+
+    huffDiffCode(63) = -8128
+
+Initial values per Component = [ 8192, 8192, 8192, 8192 ]     8192 = 2^(14-1), 14 is the precision read from <FIXME>
+
+    =>  the value is 8192 - 8128  = 64
+
+PreviousValue [ 64, 8192, 8192, 8192, 8192 ]
+
+bitOffset = 9+13 = 22
+
+
+
