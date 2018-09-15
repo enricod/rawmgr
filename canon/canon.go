@@ -473,6 +473,13 @@ func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
 	return sosHeader, offset3, nil
 }
 
+func scriviHuffCodes(huffMappings []common.HuffMapping) {
+	log.Printf("HUFFMAN CODES =========")
+	log.Printf("#   \t bits \t code \t value")
+	for i, h := range huffMappings {
+		log.Printf("%d   \t %d \t  '%16b' \t %b", i, h.BitCount, h.Code, h.Value)
+	}
+}
 func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	var dhtHeader = DHTHeader{}
 
@@ -491,6 +498,9 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 
 	huffBytes := data[offset : offset+int64(length-2)]
 	huffMappings := common.DecodeHuffTree(huffBytes)
+
+	scriviHuffCodes(huffMappings[0])
+	scriviHuffCodes(huffMappings[1])
 
 	sof3Header, offset2, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
 	if err != nil {
@@ -536,6 +546,7 @@ func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	return mybytes, offset + int64(i)
 }
 
+/*
 func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffMapping, error) {
 	if mycode == uint64(0) {
 		return common.HuffMapping{}, fmt.Errorf("not found")
@@ -549,7 +560,7 @@ func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffM
 		return myvalue, nil
 	}
 }
-
+*/
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	p2 := common.Pow2(bitNr)
@@ -561,15 +572,26 @@ func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	return a
 }
 
+func scriviBit(data []byte, bitsOffset int, howmany int) {
+	bitreader := bitstream.NewReader(bytes.NewReader(data))
+	bitreader.ReadBits(bitsOffset)
+	v, err := bitreader.ReadBits(howmany)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	log.Printf("bits in esame = '%16b'", v)
+}
 func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
+
 	bitreader := bitstream.NewReader(bytes.NewReader(data))
 	bitreader.ReadBits(bitsOffset)
 	v, err := bitreader.ReadBits(bitsLength)
 	if err != nil {
 		return common.HuffMapping{}, err
 	}
+	log.Printf("bits in esame %b", v)
 
-	h, err2 := common.HuffGetMapping(huffMappings, v)
+	h, err2 := common.HuffGetMapping(huffMappings, v, bitsLength)
 	if err2 != nil {
 		return findHuffCode(data, bitsOffset, bitsLength-1, huffMappings)
 	}
@@ -613,18 +635,21 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
-	for j := 0; j < 10; j++ {
-		// for j := 0; j < int(totPixels); j++ {
+	//for j := 0; j < 16; j++ {
+
+	for j := 0; j < int(totPixels); j++ {
 		log.Printf("============= STEP %d ===============", j)
 		log.Printf("bitsOffset = %d, previousValues=%v", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
 		log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
 
+		scriviBit(cleanedData, bitsOffset, 16)
+
 		huffCode, err := findHuffCode(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
 		if err != nil {
 			log.Printf(err.Error())
 		}
-		log.Printf("%v", huffCode)
+		log.Printf("huffCode = %v", huffCode)
 
 		// we already read huffCode.BitCount bits searching huffCode
 		bitreader.ReadBits(huffCode.BitCount)

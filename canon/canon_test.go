@@ -24,7 +24,7 @@ func TestScanFile(t *testing.T) {
 
 	dataCorrect, err := ioutil.ReadFile("../images/IMG_2060/IMG_2026_RAW_Data_from_DNG.bin")
 	if err != nil {
-		log.Printf("errore lettura file")
+		log.Printf("errore lettura file %v", err)
 	}
 	dataMaybe, err2 := ioutil.ReadFile("../ifd_3.bin")
 	if err2 != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 	"os"
 )
@@ -218,6 +219,7 @@ func DecodeHuffTree(data []byte) [][]HuffMapping {
 	huffItems1, _ := GetHuffItems(data, offset+1)
 	result = append(result, decodeHuff(huffItems1))
 
+	log.Printf("%v", huffIems0)
 	return result
 }
 
@@ -235,11 +237,11 @@ func Pow2(exp int) uint64 {
 }
 
 // HuffGetMapping given the mappings and a values, return the mapping matching, error if not found
-func HuffGetMapping(huffMappings []HuffMapping, code uint64) (HuffMapping, error) {
+func HuffGetMapping(huffMappings []HuffMapping, code uint64, bitsLenght int) (HuffMapping, error) {
 
 	for i := len(huffMappings) - 1; i >= 0; i-- {
 		h := huffMappings[i]
-		if h.Code == code {
+		if h.Code == code && h.BitCount == bitsLenght {
 			return h, nil
 		}
 	}
