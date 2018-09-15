@@ -546,21 +546,6 @@ func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	return mybytes, offset + int64(i)
 }
 
-/*
-func findHuffMapping(mappings []common.HuffMapping, mycode uint64) (common.HuffMapping, error) {
-	if mycode == uint64(0) {
-		return common.HuffMapping{}, fmt.Errorf("not found")
-	}
-
-	myvalue, err := common.HuffGetMapping(mappings, mycode)
-
-	if err != nil {
-		return findHuffMapping(mappings, mycode>>1)
-	} else {
-		return myvalue, nil
-	}
-}
-*/
 // if first bit == 0, then do reverse
 func reverseBitsIfNecessary(a uint64, bitNr int) uint64 {
 	p2 := common.Pow2(bitNr)
@@ -581,6 +566,7 @@ func scriviBit(data []byte, bitsOffset int, howmany int) {
 	}
 	log.Printf("bits in esame = '%16b'", v)
 }
+
 func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
 
 	bitreader := bitstream.NewReader(bytes.NewReader(data))
@@ -589,7 +575,7 @@ func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []co
 	if err != nil {
 		return common.HuffMapping{}, err
 	}
-	log.Printf("bits in esame %b", v)
+	//log.Printf("bits in esame %b", v)
 
 	h, err2 := common.HuffGetMapping(huffMappings, v, bitsLength)
 	if err2 != nil {
@@ -633,41 +619,61 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
 
-	huffDifferences := common.HuffDifferences()
+	//huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
 	//for j := 0; j < 16; j++ {
-
-	for j := 0; j < int(totPixels); j++ {
-		log.Printf("============= STEP %d ===============", j)
-		log.Printf("bitsOffset = %d, previousValues=%v", bitsOffset, previousValues)
+	terminated := true
+	bitsCount := 8 * len(cleanedData)
+	// for j := 0; j < int(totPixels); j++ {
+	j := 0
+	for terminated {
+		log.Printf("Step %d , bitsOffset = %d / %d", j, bitsOffset, bitsCount)
+		//		log.Printf("", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
-		log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
-
-		scriviBit(cleanedData, bitsOffset, 16)
+		//log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
+		//scriviBit(cleanedData, bitsOffset, 16)
 
 		huffCode, err := findHuffCode(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
 		if err != nil {
 			log.Printf(err.Error())
 		}
-		log.Printf("huffCode = %v", huffCode)
+		// log.Printf("huffCode = %v", huffCode)
 
 		// we already read huffCode.BitCount bits searching huffCode
-		bitreader.ReadBits(huffCode.BitCount)
-		val2, err := bitreader.ReadBits(int(huffCode.Value))
-
-		log.Printf("val2=%d, %13b", val2, val2)
+		_, terminatedError := bitreader.ReadBits(huffCode.BitCount)
+		if terminatedError != nil {
+			terminated = false
+			break
+		}
+		val2, terminatedError := bitreader.ReadBits(int(huffCode.Value))
+		if terminatedError != nil {
+			terminated = false
+			break
+		}
+		//log.Printf("val2=%d, %13b", val2, val2)
 
 		if err != nil {
 			log.Printf(err.Error())
 		}
 
-		huffDiff, err := huffDifferences.Find(uint8(huffCode.Value), uint16(val2))
-		log.Printf("huffDiff=%v", huffDiff)
-		if err != nil {
-			return nil, err
-		}
+		val3 := reverseBitsIfNecessary(val2, huffCode.BitCount)
+		/*
+			questo è più lento ...
+			huffDiff, err := huffDifferences.Find(uint8(huffCode.Value), uint16(val2))
+			//log.Printf("huffDiff=%v", huffDiff)
+			if err != nil {
+				return nil, err
+			}
+			val4 := uint16(int32(previousValues[componentNr]) + huffDiff.Diff)
+		*/
 
-		val4 := uint16(int32(previousValues[componentNr]) + huffDiff.Diff)
+		// questo forse più veloce
+		var val4 uint16
+		if val3 == val2 {
+			val4 = uint16(int32(previousValues[componentNr]) + int32(val3))
+		} else {
+			val4 = uint16(int32(previousValues[componentNr]) - int32(val3))
+		}
 
 		// costruiamo byte per immagine finale
 		/*
@@ -688,9 +694,10 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
+		j++
 	}
 
-	log.Printf(" %v  ", rawData)
+	// log.Printf(" %v  ", rawData)
 	return rawData, nil
 }
 
