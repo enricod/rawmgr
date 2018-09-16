@@ -697,7 +697,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		j++
 	}
 
-	// log.Printf(" %v  ", rawData)
+	//log.Printf(" %v  ", rawData)
 	return rawData, nil
 }
 

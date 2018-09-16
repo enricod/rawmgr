@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"runtime/pprof"
 
 	"log"
 	"os"
@@ -86,9 +87,20 @@ func main() {
 	defaultFileName := "images/IMG_2060/IMG_2026.CR2"
 	rawfile := flag.String("f", defaultFileName, "raw file")
 	common.Verbose = flag.Bool("v", false, "verbose")
+	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 	flag.Parse()
 	log.Println("reading file " + *rawfile)
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	/*
 		inputFile, err := os.Open(*rawfile)
 		check(err)
