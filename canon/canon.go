@@ -88,6 +88,7 @@ type DHTHeader struct {
 	TableIndex1 uint8
 }
 
+// LosslessJPG data for lossless image
 type LosslessJPG struct {
 	DHTHeader    DHTHeader
 	SOF3Header   SOF3Header
@@ -567,7 +568,7 @@ func scriviBit(data []byte, bitsOffset int, howmany int) {
 	log.Printf("bits in esame = '%16b'", v)
 }
 
-func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
+func findHuffCodeSlow(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
 
 	bitreader := bitstream.NewReader(bytes.NewReader(data))
 	bitreader.ReadBits(bitsOffset)
@@ -579,7 +580,7 @@ func findHuffCode(data []byte, bitsOffset int, bitsLength int, huffMappings []co
 
 	h, err2 := common.HuffGetMapping(huffMappings, v, bitsLength)
 	if err2 != nil {
-		return findHuffCode(data, bitsOffset, bitsLength-1, huffMappings)
+		return findHuffCodeSlow(data, bitsOffset, bitsLength-1, huffMappings)
 	}
 	return h, nil
 }
@@ -640,11 +641,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	//huffDifferences := common.HuffDifferences()
 	// PROVVISORIO
 	//for j := 0; j < 16; j++ {
-	terminated := true
+	running := true
 	bitsCount := 8 * len(cleanedData)
 	// for j := 0; j < int(totPixels); j++ {
 	j := 0
-	for terminated {
+	for running {
 		log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
 		//		log.Printf("", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
@@ -657,18 +658,19 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		//log.Printf("ricerca codice huff %d", end.Sub(start))
 		if err != nil {
 			log.Printf(err.Error())
+			running = false
 		}
 		// log.Printf("huffCode = %v", huffCode)
 
 		// we already read huffCode.BitCount bits searching huffCode
 		_, terminatedError := bitreader.ReadBits(huffCode.BitCount)
 		if terminatedError != nil {
-			terminated = false
+			running = false
 			break
 		}
 		val2, terminatedError := bitreader.ReadBits(int(huffCode.Value))
 		if terminatedError != nil {
-			terminated = false
+			running = false
 			break
 		}
 		//log.Printf("val2=%d, %13b", val2, val2)
@@ -677,7 +679,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			log.Printf(err.Error())
 		}
 
-		val3 := reverseBitsIfNecessary(val2, huffCode.BitCount)
+		val3 := reverseBitsIfNecessary(val2, int(huffCode.Value))
 		/*
 			questo è più lento ...
 			huffDiff, err := huffDifferences.Find(uint8(huffCode.Value), uint16(val2))
