@@ -172,6 +172,11 @@ func NSpaces(spaces int) string {
 	return buffer.String()
 }
 
+type HuffMappingKey struct {
+	BitCount int
+	Code     uint64
+}
+
 // HuffMapping mapping between a bitq sequence and a byte, used in Huffman decoding
 type HuffMapping struct {
 	BitCount int
@@ -231,7 +236,7 @@ func PopFirst(s []byte) (byte, []byte) {
 	return first, s2
 }
 
-// pow2 return 2^exp as uint64
+// Pow2 return 2^exp as uint64
 func Pow2(exp int) uint64 {
 	return uint64(math.Pow(2, float64(exp)))
 }
@@ -241,7 +246,7 @@ func HuffGetMapping(huffMappings []HuffMapping, code uint64, bitsLenght int) (Hu
 
 	for i := len(huffMappings) - 1; i >= 0; i-- {
 		h := huffMappings[i]
-		if h.Code == code && h.BitCount == bitsLenght {
+		if h.BitCount == bitsLenght && h.Code == code {
 			return h, nil
 		}
 	}
