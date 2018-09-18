@@ -241,6 +241,16 @@ func Pow2(exp int) uint64 {
 	return uint64(math.Pow(2, float64(exp)))
 }
 
+// HuffMappingToMap trasform list of mappings in a map
+func HuffMappingToMap(huffMappings []HuffMapping) map[HuffMappingKey]HuffMapping {
+	var result map[HuffMappingKey]HuffMapping
+	result = make(map[HuffMappingKey]HuffMapping)
+	for _, h := range huffMappings {
+		result[HuffMappingKey{BitCount: h.BitCount, Code: h.Code}] = h
+	}
+	return result
+}
+
 // HuffGetMapping given the mappings and a values, return the mapping matching, error if not found
 func HuffGetMapping(huffMappings []HuffMapping, code uint64, bitsLenght int) (HuffMapping, error) {
 
@@ -253,12 +263,14 @@ func HuffGetMapping(huffMappings []HuffMapping, code uint64, bitsLenght int) (Hu
 	return HuffMapping{}, fmt.Errorf("code not found %d", code)
 }
 
+// HuffDiff utilizzato per calcore la differenza
 type HuffDiff struct {
 	BitCount uint8
 	Key      uint16
 	Diff     int32
 }
 
+// HuffDiffs elenco valori HuffDiff
 type HuffDiffs struct {
 	Diffs []HuffDiff
 }

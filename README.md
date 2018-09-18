@@ -18,3 +18,4 @@ Written in go
             
             
 
+./rawmgr -cpuprofile=rawmgr.prof

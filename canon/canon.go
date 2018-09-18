@@ -603,6 +603,28 @@ func findHuffCodeV2(data []byte, bitsOffset int, bitsLength int, huffMappings []
 	return common.HuffMapping{}, fmt.Errorf("not found")
 }
 
+func findHuffCodeV3(data []byte, bitsOffset int, bitsLength int, huffMappings map[common.HuffMappingKey]common.HuffMapping) (common.HuffMapping, error) {
+
+	bytesOffset := int(bitsOffset / 8)
+	byte4 := data[bytesOffset : bytesOffset+4]
+
+	val4 := binary.BigEndian.Uint32(byte4)
+	val4 = (val4 << uint(bitsOffset%8)) >> 16
+	val5 := uint16(val4)
+	for i := 16; i >= 2; i-- {
+		val6 := val5 >> uint(16-i)
+		h, ok := huffMappings[common.HuffMappingKey{Code: uint64(val6), BitCount: i}]
+		if ok {
+			return h, nil
+		}
+		//h, err2 := common.HuffGetMapping(huffMappings, uint64(val6), i)
+		//if err2 == nil {
+		//	return h, nil
+		//}
+	}
+	return common.HuffMapping{}, fmt.Errorf("not found")
+}
+
 // 0xff 0x00 becomes 0xff
 func cleanStream(data []byte) []byte {
 	result := []byte{}
@@ -653,7 +675,8 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		//scriviBit(cleanedData, bitsOffset, 16)
 
 		//start := time.Now()
-		huffCode, err := findHuffCodeV2(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
+		//huffCode, err := findHuffCodeV2(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
+		huffCode, err := findHuffCodeV3(cleanedData, bitsOffset, 16, common.HuffMappingToMap(loselessJPG.HuffmanCodes[dcTableIndex]))
 		//end := time.Now()
 		//log.Printf("ricerca codice huff %d", end.Sub(start))
 		if err != nil {
