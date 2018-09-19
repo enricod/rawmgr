@@ -58,6 +58,10 @@ type rawSlice struct {
 	LastSliceSize uint16
 }
 
+func (r *rawSlice) rowLength() int {
+	return int(r.Count*r.SliceSize) + int(r.LastSliceSize)
+}
+
 // IFD Image File Directory item
 type IFD struct {
 	Tag           uint16
@@ -318,6 +322,7 @@ type huffItem struct {
 	Code uint16
 }
 
+// SOF3Component description SOF3
 type SOF3Component struct {
 	ComponentIdentifier      uint8
 	HorizontalSamplingFactor uint8
@@ -336,6 +341,7 @@ type SOF3Header struct {
 	Components                []SOF3Component
 }
 
+// SOSComponent start of stream component desc
 type SOSComponent struct {
 	Selector uint8
 	DCTable  uint8
@@ -643,31 +649,56 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
-func calcolaPosizioneInMatrice(counter int, rawslice rawSlice) int {
-	return counter
+func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int, int, int, int) {
+	var pixelsInSlice = int(rawslice.SliceSize) * nrLines
+	// cerca slice appartenenza
+	var n int
+	for n = 0; n < int(rawslice.Count)+1; n++ {
+		if counter >= n*(pixelsInSlice) && counter < (n+1)*(pixelsInSlice) {
+			break
+		}
+	}
+
+	var rigaInSlice int
+	var colInSlice int
+	var counter2 int
+	if n == int(rawslice.Count) {
+		// last slice
+		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.LastSliceSize)
+		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.LastSliceSize)
+		counter2 = n*int(rawslice.SliceSize) + colInSlice
+	} else {
+		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.SliceSize)
+		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.SliceSize)
+		counter2 = rigaInSlice * pixelsInSlice
+	}
+	//if counter == 6075648 {
+	//	log.Printf("%d appartiene a slice: %d, riga: %d, colInSlice:%d => %d", counter, n, rigaInSlice, colInSlice, result)
+	//}
+	return n, rigaInSlice, colInSlice, counter2
+
+	//rowLength := rawslice.rowLength()
 }
 
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint16, error) {
 
 	cleanedData := cleanStream(data[offset:])
-	log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
+	// log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
 	previousValues := []uint16{}
 	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
 		previousValues = append(previousValues, uint16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1))))
 	}
-	log.Printf("scanRawData | offset=%d", offset)
+	// log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
 		return nil, err
 	}
 
-	totColumns := rawSlice.Count*rawSlice.SliceSize + rawSlice.LastSliceSize
-	log.Printf("rawSlice %v, totPixels=%d", rawSlice, totColumns)
 	componentNr := 0
-	pixelsCount := int(totColumns) * int(loselessJPG.SOF3Header.NrLines)
+	pixelsCount := rawSlice.rowLength() * int(loselessJPG.SOF3Header.NrLines)
 	rawData := make([]uint16, pixelsCount)
-	log.Printf("allocata matrice di %d elementi", cap(rawData))
+	// log.Printf("allocata matrice di %d elementi", cap(rawData))
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
@@ -677,10 +708,8 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	//for j := 0; j < 16; j++ {
 	running := true
 	//bitsCount := 8 * len(cleanedData)
-	// for j := 0; j < int(totPixels); j++ {
 	j := 0
 	for running {
-
 		//log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
 		//log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
@@ -734,15 +763,10 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 
 		// costruiamo byte per immagine finale
-		/*
-			val5Bytes := make([]byte, 2)
-			binary.LittleEndian.PutUint16(val5Bytes, uint16(val4))
-			log.Printf("val4 = %d,  %v", val4, val5Bytes)
-
-			rawData = append(rawData, val5Bytes...)
-		*/
 		if j < cap(rawData) {
-			rawData[calcolaPosizioneInMatrice(j, rawSlice)] = val4
+			_, _, _, j2 := getPositionWithoutSlicing(j, rawSlice, int(loselessJPG.SOF3Header.NrLines))
+
+			rawData[j2] = val4
 		}
 
 		previousValues[componentNr] = val4
@@ -757,7 +781,6 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		j++
 	}
 
-	//log.Printf(" %v  ", rawData)
 	return rawData, nil
 }
 
@@ -771,7 +794,7 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]ui
 
 	loselessJPG, loselessJPGOffset, err := parseDHTHeader(data, offset)
 	check(err)
-	log.Printf("loselessJPG %v", loselessJPG)
+	//log.Printf("loselessJPG %v", loselessJPG)
 
 	rawData, err := scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
 
@@ -794,6 +817,7 @@ func ProcessCR2(data []byte) {
 	rawData, err := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
 
 	f, err := os.Create("ifd_3.bin")
+	log.Printf("saving in %s", f.Name())
 	for _, d := range rawData {
 		binary.Write(f, binary.LittleEndian, d)
 	}

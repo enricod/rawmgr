@@ -33,6 +33,55 @@ func TestScanFile(t *testing.T) {
 
 	assert.Equal(len(dataCorrect), len(dataMaybe), "dimensione dei file non corrispondono")
 	for i, b := range dataMaybe {
-		require.Equal(b, dataCorrect[i], fmt.Sprintf("errore in posizione %d", i))
+		require.Equal(dataCorrect[i], b, fmt.Sprintf("errore in posizione %d", i))
 	}
+}
+
+func TestGetPositionWithoutSlicing(t *testing.T) {
+	assert := assert.New(t)
+
+	slices := rawSlice{2, 1728, 1888}
+	nrLines := 3516
+
+	// primo elemento, primo slice
+	sliceIndex, sliceRow, sliceCol, index := getPositionWithoutSlicing(0, slices, nrLines)
+	assert.Equal(0, sliceIndex, "")
+	assert.Equal(0, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
+	assert.Equal(0, index, "")
+
+	// slice #0, row #1, col 0
+	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(1728, slices, nrLines)
+	assert.Equal(0, sliceIndex, "")
+	assert.Equal(1, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
+
+	// slice #0, row #1, col 0
+	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(1730, slices, nrLines)
+	assert.Equal(0, sliceIndex, "")
+	assert.Equal(1, sliceRow, "")
+	assert.Equal(2, sliceCol, "")
+
+	// slice #1, row #0, col 0
+	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648, slices, nrLines)
+	assert.Equal(1, sliceIndex, "")
+	assert.Equal(0, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
+	assert.Equal(1728, index, "")
+
+	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648+1728, slices, nrLines)
+	assert.Equal(1, sliceIndex, "")
+	assert.Equal(1, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
+	assert.Equal(5334+1728, index, "")
+
+	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(2*6075648+1728, slices, nrLines)
+	assert.Equal(2, sliceIndex, "")
+	assert.Equal(0, sliceRow, "")
+	assert.Equal(1728, sliceCol, "")
+
+	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(2*6075648+1888, slices, nrLines)
+	assert.Equal(2, sliceIndex, "")
+	assert.Equal(1, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
 }

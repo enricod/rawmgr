@@ -19,3 +19,4 @@ Written in go
             
 
 ./rawmgr -cpuprofile=rawmgr.prof
+go tool pprof rawmgr rawmgr.prof
