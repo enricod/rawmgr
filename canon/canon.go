@@ -90,10 +90,11 @@ type DHTHeader struct {
 
 // LosslessJPG data for lossless image
 type LosslessJPG struct {
-	DHTHeader    DHTHeader
-	SOF3Header   SOF3Header
-	SOSHeader    SOSHeader
-	HuffmanCodes [][]common.HuffMapping
+	DHTHeader       DHTHeader
+	SOF3Header      SOF3Header
+	SOSHeader       SOSHeader
+	HuffmanCodes    [][]common.HuffMapping // da eliminare
+	HuffmanCodesMap []map[common.HuffMappingKey]common.HuffMapping
 }
 
 func readHeader(data []byte) (Header, error) {
@@ -500,8 +501,13 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	huffBytes := data[offset : offset+int64(length-2)]
 	huffMappings := common.DecodeHuffTree(huffBytes)
 
-	scriviHuffCodes(huffMappings[0])
-	scriviHuffCodes(huffMappings[1])
+	//scriviHuffCodes(huffMappings[0])
+	//scriviHuffCodes(huffMappings[1])
+
+	huffmanCodesMap := []map[common.HuffMappingKey]common.HuffMapping{}
+	for _, hm := range huffMappings {
+		huffmanCodesMap = append(huffmanCodesMap, common.HuffMappingToMap(hm))
+	}
 
 	sof3Header, offset2, err := parseSOF3Header(data, offset2+int64(dhtHeader.Length)-2)
 	if err != nil {
@@ -514,8 +520,9 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	}
 
 	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header,
-		SOSHeader:    sosHeader,
-		HuffmanCodes: huffMappings,
+		SOSHeader:       sosHeader,
+		HuffmanCodes:    huffMappings,
+		HuffmanCodesMap: huffmanCodesMap,
 	}
 
 	return losslessJPG, offset3, nil
@@ -636,6 +643,10 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
+func calcolaPosizioneInMatrice(counter int, rawslice rawSlice) int {
+	return counter
+}
+
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint16, error) {
 
 	cleanedData := cleanStream(data[offset:])
@@ -651,11 +662,12 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		return nil, err
 	}
 
-	totPixels := rawSlice.Count*rawSlice.SliceSize + rawSlice.LastSliceSize
-	log.Printf("rawSlice %v, totPixels=%d", rawSlice, totPixels)
+	totColumns := rawSlice.Count*rawSlice.SliceSize + rawSlice.LastSliceSize
+	log.Printf("rawSlice %v, totPixels=%d", rawSlice, totColumns)
 	componentNr := 0
-
-	rawData := []uint16{}
+	pixelsCount := int(totColumns) * int(loselessJPG.SOF3Header.NrLines)
+	rawData := make([]uint16, pixelsCount)
+	log.Printf("allocata matrice di %d elementi", cap(rawData))
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
@@ -664,19 +676,19 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	// PROVVISORIO
 	//for j := 0; j < 16; j++ {
 	running := true
-	bitsCount := 8 * len(cleanedData)
+	//bitsCount := 8 * len(cleanedData)
 	// for j := 0; j < int(totPixels); j++ {
 	j := 0
-	for running && j < 8 {
-		log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
-		//		log.Printf("", bitsOffset, previousValues)
+	for running {
+
+		//log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)
 		//log.Printf("componentNr=%d, dcTableIndex = %d", componentNr, dcTableIndex)
 		//scriviBit(cleanedData, bitsOffset, 16)
 
 		//start := time.Now()
 		//huffCode, err := findHuffCodeV2(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodes[dcTableIndex])
-		huffCode, err := findHuffCodeV3(cleanedData, bitsOffset, 16, common.HuffMappingToMap(loselessJPG.HuffmanCodes[dcTableIndex]))
+		huffCode, err := findHuffCodeV3(cleanedData, bitsOffset, 16, loselessJPG.HuffmanCodesMap[dcTableIndex])
 		//end := time.Now()
 		//log.Printf("ricerca codice huff %d", end.Sub(start))
 		if err != nil {
@@ -729,7 +741,9 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 			rawData = append(rawData, val5Bytes...)
 		*/
-		rawData = append(rawData, val4)
+		if j < cap(rawData) {
+			rawData[calcolaPosizioneInMatrice(j, rawSlice)] = val4
+		}
 
 		previousValues[componentNr] = val4
 

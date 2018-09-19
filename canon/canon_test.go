@@ -22,7 +22,7 @@ func TestScanFile(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	dataCorrect, err := ioutil.ReadFile("../images/IMG_2060/IMG_2026_RAW_Data_from_DNG.bin")
+	dataCorrect, err := ioutil.ReadFile("../images/Canon/Canon_001_grayscale_lossless_jpeg.bin")
 	if err != nil {
 		log.Printf("errore lettura file %v", err)
 	}
