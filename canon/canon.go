@@ -667,7 +667,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	bitsCount := 8 * len(cleanedData)
 	// for j := 0; j < int(totPixels); j++ {
 	j := 0
-	for running {
+	for running && j < 8 {
 		log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
 		//		log.Printf("", bitsOffset, previousValues)
 		dcTableIndex := int(loselessJPG.SOSHeader.Components[componentNr].DCTable)

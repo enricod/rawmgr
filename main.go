@@ -84,7 +84,7 @@ func check(e error) {
 
 func main() {
 	//defaultFileName := "images/Canon-EOS6D-RAW.CR2"
-	defaultFileName := "images/IMG_2060/IMG_2026.CR2"
+	defaultFileName := "images/Canon/Canon_001.CR2"
 	rawfile := flag.String("f", defaultFileName, "raw file")
 	common.Verbose = flag.Bool("v", false, "verbose")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
