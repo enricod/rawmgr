@@ -666,11 +666,11 @@ func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int
 		// last slice
 		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.LastSliceSize)
 		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.LastSliceSize)
-		counter2 = n*int(rawslice.SliceSize) + colInSlice
+		counter2 = rigaInSlice*rawslice.rowLength() + n*int(rawslice.SliceSize) + colInSlice
 	} else {
 		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.SliceSize)
 		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.SliceSize)
-		counter2 = rigaInSlice * pixelsInSlice
+		counter2 = rigaInSlice*rawslice.rowLength() + n*int(rawslice.SliceSize) + colInSlice
 	}
 	//if counter == 6075648 {
 	//	log.Printf("%d appartiene a slice: %d, riga: %d, colInSlice:%d => %d", counter, n, rigaInSlice, colInSlice, result)

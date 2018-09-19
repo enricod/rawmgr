@@ -73,9 +73,22 @@ func TestGetPositionWithoutSlicing(t *testing.T) {
 	assert.Equal(1, sliceIndex, "")
 	assert.Equal(1, sliceRow, "")
 	assert.Equal(0, sliceCol, "")
-	assert.Equal(5334+1728, index, "")
+	assert.Equal(5344+1728, index, "hh")
 
-	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(2*6075648+1728, slices, nrLines)
+	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648+2*1728+10, slices, nrLines)
+	assert.Equal(1, sliceIndex, "")
+	assert.Equal(2, sliceRow, "")
+	assert.Equal(10, sliceCol, "")
+	assert.Equal(5344*2+1728*sliceIndex+10, index, "")
+
+	// slice #2
+	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(2*6075648, slices, nrLines)
+	assert.Equal(2, sliceIndex, "")
+	assert.Equal(0, sliceRow, "")
+	assert.Equal(0, sliceCol, "")
+	assert.Equal(sliceIndex*1728, index, "")
+
+	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(2*6075648+1728, slices, nrLines)
 	assert.Equal(2, sliceIndex, "")
 	assert.Equal(0, sliceRow, "")
 	assert.Equal(1728, sliceCol, "")
