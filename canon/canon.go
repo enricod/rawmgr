@@ -544,6 +544,15 @@ func getRawSlice(ifd IFDs) (rawSlice, error) {
 	return rawSlice{}, errors.New("raw slice not found")
 }
 
+func getStripBytesCount(ifd IFDs) (uint32, error) {
+	for _, ifd := range ifd.Ifds {
+		if ifd.Tag == 0x0117 {
+			return ifd.Value, nil
+		}
+	}
+	return 0, errors.New("stripBytesCount (0x0117) not found")
+}
+
 // if  0xff00 is followed by 0x00 we return only 0xff - deprecated
 func extractFirstBytes(data []byte, offset int64, howmany int) ([]byte, int64) {
 	mybytes := []byte{}
@@ -582,6 +591,7 @@ func scriviBit(data []byte, bitsOffset int, howmany int) {
 	log.Printf("bits in esame = '%16b'", v)
 }
 
+/*
 func findHuffCodeSlow(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
 
 	bitreader := bitstream.NewReader(bytes.NewReader(data))
@@ -598,6 +608,7 @@ func findHuffCodeSlow(data []byte, bitsOffset int, bitsLength int, huffMappings 
 	}
 	return h, nil
 }
+
 
 func findHuffCodeV2(data []byte, bitsOffset int, bitsLength int, huffMappings []common.HuffMapping) (common.HuffMapping, error) {
 
@@ -616,6 +627,7 @@ func findHuffCodeV2(data []byte, bitsOffset int, bitsLength int, huffMappings []
 	}
 	return common.HuffMapping{}, fmt.Errorf("not found")
 }
+*/
 
 func findHuffCodeV3(data []byte, bitsOffset int, bitsLength int, huffMappings map[common.HuffMappingKey]common.HuffMapping) (common.HuffMapping, error) {
 
@@ -631,12 +643,8 @@ func findHuffCodeV3(data []byte, bitsOffset int, bitsLength int, huffMappings ma
 		if ok {
 			return h, nil
 		}
-		//h, err2 := common.HuffGetMapping(huffMappings, uint64(val6), i)
-		//if err2 == nil {
-		//	return h, nil
-		//}
 	}
-	return common.HuffMapping{}, fmt.Errorf("not found")
+	return common.HuffMapping{}, fmt.Errorf("huffman code not found, bytesOffset:%d, bitsoffset:%d, %b", bytesOffset, bitsOffset, val5)
 }
 
 // 0xff 0x00 becomes 0xff
@@ -649,39 +657,6 @@ func cleanStream(data []byte) []byte {
 	}
 	return result
 }
-
-/*
-func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int, int, int, int) {
-	var pixelsInSlice = int(rawslice.SliceSize) * nrLines
-	// cerca slice appartenenza
-	var n int
-	for n = 0; n < int(rawslice.Count)+1; n++ {
-		if counter >= n*(pixelsInSlice) && counter < (n+1)*(pixelsInSlice) {
-			break
-		}
-	}
-
-	var rigaInSlice int
-	var colInSlice int
-	var counter2 int
-	if n == int(rawslice.Count) {
-		// last slice
-		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.LastSliceSize)
-		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.LastSliceSize)
-		counter2 = rigaInSlice*rawslice.rowLength() + n*int(rawslice.SliceSize) + colInSlice
-	} else {
-		rigaInSlice = (counter - n*pixelsInSlice) / int(rawslice.SliceSize)
-		colInSlice = (counter - n*pixelsInSlice) % int(rawslice.SliceSize)
-		counter2 = rigaInSlice*rawslice.rowLength() + n*int(rawslice.SliceSize) + colInSlice
-	}
-	//if counter == 6075648 {
-	//	log.Printf("%d appartiene a slice: %d, riga: %d, colInSlice:%d => %d", counter, n, rigaInSlice, colInSlice, result)
-	//}
-	return n, rigaInSlice, colInSlice, counter2
-
-	//rowLength := rawslice.rowLength()
-}
-*/
 
 // sliceIndex, rowInSlice, colInSlice
 func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
@@ -725,6 +700,12 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	if err != nil {
 		return nil, err
 	}
+
+	stripBytesCount, err := getStripBytesCount(aifd)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("stripBytesCount %d, imageHeight: %d", stripBytesCount, loselessJPG.SOF3Header.NrLines)
 
 	componentNr := 0
 	pixelsCount := rawSlice.imageWidth() * int(loselessJPG.SOF3Header.NrLines)
@@ -770,10 +751,6 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 		//log.Printf("val2=%d, %13b", val2, val2)
 
-		if err != nil {
-			log.Printf(err.Error())
-		}
-
 		val3 := reverseBitsIfNecessary(val2, int(huffCode.Value))
 		/*
 			questo è più lento ...
@@ -816,7 +793,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 		j++
 	}
-
+	log.Printf("rawData length = %d", len(rawData))
 	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
@@ -850,16 +827,16 @@ func ProcessCR2(data []byte) {
 	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
 	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
 
-	rawData, err := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+	parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
 
 	f, err := os.Create("ifd_3.bin")
 	log.Printf("saving in %s", f.Name())
 
 	start := time.Now()
 	// bufferedWriter := bufio.NewWriter(f)
-	for _, d := range rawData {
-		binary.Write(f, binary.LittleEndian, d)
-	}
+	//for _, d := range rawData {
+	//	binary.Write(f, binary.LittleEndian, d)
+	//}
 
 	elapsed := time.Since(start)
 	log.Printf("saved. %s", elapsed)
