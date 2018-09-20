@@ -26,7 +26,7 @@ func TestScanFile(t *testing.T) {
 	if err != nil {
 		log.Printf("errore lettura file %v", err)
 	}
-	dataMaybe, err2 := ioutil.ReadFile("../ifd_3.bin")
+	dataMaybe, err2 := ioutil.ReadFile("../images/Canon/Canon_001.bin")
 	if err2 != nil {
 		log.Printf("errore lettura file")
 	}

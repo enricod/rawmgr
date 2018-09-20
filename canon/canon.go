@@ -827,16 +827,16 @@ func ProcessCR2(data []byte) {
 	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
 	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
 
-	parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+	rawData, _ := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
 
-	f, err := os.Create("ifd_3.bin")
+	f, err := os.Create("images/Canon/Canon_001.bin")
 	log.Printf("saving in %s", f.Name())
 
 	start := time.Now()
 	// bufferedWriter := bufio.NewWriter(f)
-	//for _, d := range rawData {
-	//	binary.Write(f, binary.LittleEndian, d)
-	//}
+	for _, d := range rawData {
+		binary.Write(f, binary.LittleEndian, d)
+	}
 
 	elapsed := time.Since(start)
 	log.Printf("saved. %s", elapsed)
