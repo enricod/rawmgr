@@ -58,8 +58,8 @@ type rawSlice struct {
 	LastSliceSize uint16
 }
 
-func (r *rawSlice) rowLength() int {
-	return int(r.Count*r.SliceSize) + int(r.LastSliceSize)
+func (r *rawSlice) imageWidth() int {
+	return int(r.Count)*int(r.SliceSize) + int(r.LastSliceSize)
 }
 
 // IFD Image File Directory item
@@ -649,6 +649,7 @@ func cleanStream(data []byte) []byte {
 	return result
 }
 
+/*
 func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int, int, int, int) {
 	var pixelsInSlice = int(rawslice.SliceSize) * nrLines
 	// cerca slice appartenenza
@@ -679,7 +680,40 @@ func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int
 
 	//rowLength := rawslice.rowLength()
 }
+*/
 
+// sliceIndex, rowInSlice, colInSlice
+func sliceIndex(offset int, rawslice rawSlice, height int) (int, int) {
+	pixels := height * int(rawslice.SliceSize)
+	sliceIndex := int(offset / pixels)
+	rowInSlice := 0
+	if sliceIndex == int(rawslice.Count) {
+		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.LastSliceSize)
+	} else {
+		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.SliceSize)
+	}
+	return sliceIndex, rowInSlice
+}
+
+func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
+	var result = make([]uint16, len(data))
+	width := rawslice.imageWidth()
+	slicePixelsNr := int(rawslice.SliceSize) * height
+	for i := 0; i < len(data); i++ {
+
+		sliceIndex, _ := sliceIndex(i, rawslice, height)
+
+		if i < slicePixelsNr {
+
+			rowInSlice := i / int(rawslice.SliceSize)
+			colInSlice := i % int(rawslice.SliceSize)
+			i2 := i + rowInSlice*width + colInSlice
+			log.Printf("sliceIndex=%d, i=%d -> %d", sliceIndex, i, i2)
+			result[i2] = data[i]
+		}
+	}
+	return result
+}
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint16, error) {
 
 	cleanedData := cleanStream(data[offset:])
@@ -696,7 +730,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	}
 
 	componentNr := 0
-	pixelsCount := rawSlice.rowLength() * int(loselessJPG.SOF3Header.NrLines)
+	pixelsCount := rawSlice.imageWidth() * int(loselessJPG.SOF3Header.NrLines)
 	rawData := make([]uint16, pixelsCount)
 	// log.Printf("allocata matrice di %d elementi", cap(rawData))
 	bitsOffset := 0
@@ -763,10 +797,15 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		}
 
 		// costruiamo byte per immagine finale
-		if j < cap(rawData) {
-			_, _, _, j2 := getPositionWithoutSlicing(j, rawSlice, int(loselessJPG.SOF3Header.NrLines))
+		/*
+			if j < cap(rawData) {
+				_, _, _, j2 := getPositionWithoutSlicing(j, rawSlice, int(loselessJPG.SOF3Header.NrLines))
 
-			rawData[j2] = val4
+				rawData[j2] = val4
+			}
+		*/
+		if j < cap(rawData) {
+			rawData[j] = val4
 		}
 
 		previousValues[componentNr] = val4
@@ -781,7 +820,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		j++
 	}
 
-	return rawData, nil
+	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
 func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]uint16, error) {
