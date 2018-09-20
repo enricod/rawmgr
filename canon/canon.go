@@ -683,34 +683,32 @@ func getPositionWithoutSlicing(counter int, rawslice rawSlice, nrLines int) (int
 */
 
 // sliceIndex, rowInSlice, colInSlice
-func sliceIndex(offset int, rawslice rawSlice, height int) (int, int) {
+func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
 	pixels := height * int(rawslice.SliceSize)
 	sliceIndex := int(offset / pixels)
-	rowInSlice := 0
+	var rowInSlice int
+	var colInSlice int
 	if sliceIndex == int(rawslice.Count) {
 		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.LastSliceSize)
+		colInSlice = (offset - sliceIndex*pixels) % int(rawslice.LastSliceSize)
 	} else {
 		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.SliceSize)
+		colInSlice = (offset - sliceIndex*pixels) % int(rawslice.SliceSize)
 	}
-	return sliceIndex, rowInSlice
+	return sliceIndex, rowInSlice, colInSlice
 }
 
 func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
 	var result = make([]uint16, len(data))
-	width := rawslice.imageWidth()
-	slicePixelsNr := int(rawslice.SliceSize) * height
 	for i := 0; i < len(data); i++ {
 
-		sliceIndex, _ := sliceIndex(i, rawslice, height)
-
-		if i < slicePixelsNr {
-
-			rowInSlice := i / int(rawslice.SliceSize)
-			colInSlice := i % int(rawslice.SliceSize)
-			i2 := i + rowInSlice*width + colInSlice
-			log.Printf("sliceIndex=%d, i=%d -> %d", sliceIndex, i, i2)
-			result[i2] = data[i]
+		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
+		// FIXME
+		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
+		if i == 6075648 || i2 == 3456 || i == 3456 {
+			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> %d", sliceIndex, rowInSlice, colInSlice, i, i2)
 		}
+		result[i2] = data[i]
 	}
 	return result
 }

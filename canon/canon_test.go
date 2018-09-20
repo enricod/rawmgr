@@ -42,30 +42,31 @@ func TestSliceIndex(t *testing.T) {
 
 	slices := rawSlice{2, 1728, 1888}
 	height := 3516
-	v, rowInSlice := sliceIndex(0, slices, height)
+	v, rowInSlice, colInSlice := sliceIndex(0, slices, height)
+	assert.Equal(0, v, "")
+	assert.Equal(0, colInSlice, "")
+
+	v, _, _ = sliceIndex(1, slices, height)
 	assert.Equal(0, v, "")
 
-	v, _ = sliceIndex(1, slices, height)
-	assert.Equal(0, v, "")
-
-	v, rowInSlice = sliceIndex(2*int(slices.SliceSize), slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(2*int(slices.SliceSize), slices, height)
 	assert.Equal(0, v, "")
 	assert.Equal(2, rowInSlice, "")
-	v, rowInSlice = sliceIndex(2*int(slices.SliceSize)-1, slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(2*int(slices.SliceSize)-1, slices, height)
 	assert.Equal(0, v, "")
 	assert.Equal(1, rowInSlice, "")
 
-	v, _ = sliceIndex(6075647, slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(6075647, slices, height)
 	assert.Equal(0, v, "")
 
-	v, rowInSlice = sliceIndex(6075648+2*int(slices.SliceSize), slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(6075648+2*int(slices.SliceSize), slices, height)
 	assert.Equal(1, v, "")
 	assert.Equal(2, rowInSlice, "sono sulla riga 2 dello slice 2")
 
-	v, rowInSlice = sliceIndex(2*6075648, slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(2*6075648, slices, height)
 	assert.Equal(2, v, "")
 
-	v, rowInSlice = sliceIndex(2*6075648+3*int(slices.LastSliceSize), slices, height)
+	v, rowInSlice, colInSlice = sliceIndex(2*6075648+3*int(slices.LastSliceSize), slices, height)
 	assert.Equal(2, v, "")
 	assert.Equal(3, rowInSlice, "sono sulla riga 3 dello slice 3")
 }
