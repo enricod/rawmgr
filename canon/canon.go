@@ -465,7 +465,7 @@ func parseSOSHeader(data []byte, offset int64) (SOSHeader, int64, error) {
 			ACTable: uint8(samplingByte & 0x0f),
 		}
 
-		log.Printf("SOS  component # %d, table=%d", comp.Selector, comp.DCTable)
+		// log.Printf("SOS  component # %d, table=%d", comp.Selector, comp.DCTable)
 		components = append(components, comp)
 	}
 	sosHeader.Components = components
@@ -702,9 +702,7 @@ func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
 func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
 	var result = make([]uint16, len(data))
 	for i := 0; i < len(data); i++ {
-
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
-		// FIXME
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
 		if i == 6075648 || i2 == 3456 {
 			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> %d", sliceIndex, rowInSlice, colInSlice, i, i2)
