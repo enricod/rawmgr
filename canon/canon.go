@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
@@ -705,7 +706,7 @@ func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
 		// FIXME
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
-		if i == 6075648 || i2 == 3456 || i == 3456 {
+		if i == 6075648 || i2 == 3456 {
 			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> %d", sliceIndex, rowInSlice, colInSlice, i, i2)
 		}
 		result[i2] = data[i]
@@ -855,10 +856,15 @@ func ProcessCR2(data []byte) {
 
 	f, err := os.Create("ifd_3.bin")
 	log.Printf("saving in %s", f.Name())
+
+	start := time.Now()
+	// bufferedWriter := bufio.NewWriter(f)
 	for _, d := range rawData {
 		binary.Write(f, binary.LittleEndian, d)
 	}
 
+	elapsed := time.Since(start)
+	log.Printf("saved. %s", elapsed)
 	defer f.Close()
 
 	check(err)
