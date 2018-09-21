@@ -674,8 +674,8 @@ func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
 	return sliceIndex, rowInSlice, colInSlice
 }
 
-func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
-	var result = make([]uint16, len(data))
+func unslice(data []int16, rawslice rawSlice, height int) []int16 {
+	var result = make([]int16, len(data))
 	for i := 0; i < len(data); i++ {
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
@@ -686,14 +686,14 @@ func unslice(data []uint16, rawslice rawSlice, height int) []uint16 {
 	}
 	return result
 }
-func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint16, error) {
+func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]int16, error) {
 
 	cleanedData := cleanStream(data[offset:])
 	// log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	previousValues := []uint16{}
+	previousValues := []int16{}
 	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
-		previousValues = append(previousValues, uint16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1))))
+		previousValues = append(previousValues, int16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1))))
 	}
 	// log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
@@ -709,7 +709,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	componentNr := 0
 	pixelsCount := rawSlice.imageWidth() * int(loselessJPG.SOF3Header.NrLines)
-	rawData := make([]uint16, pixelsCount)
+	rawData := make([]int16, pixelsCount)
 	// log.Printf("allocata matrice di %d elementi", cap(rawData))
 	bitsOffset := 0
 
@@ -763,11 +763,11 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		*/
 
 		// questo forse più veloce
-		var val4 uint16
+		var val4 int16
 		if val3 == val2 {
-			val4 = uint16(int32(previousValues[componentNr]) + int32(val3))
+			val4 = int16(previousValues[componentNr]) + int16(val3)
 		} else {
-			val4 = uint16(int32(previousValues[componentNr]) - int32(val3))
+			val4 = int16(previousValues[componentNr]) - int16(val3)
 		}
 
 		// costruiamo byte per immagine finale
@@ -794,10 +794,15 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		j++
 	}
 	log.Printf("rawData length = %d", len(rawData))
-	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
+
+	if len(rawData) != int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines)) {
+		log.Panic(fmt.Sprintf("dimensione immagine non corrisponde con dati caricati, %d vs %d", len(rawData), int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines))))
+	}
+	return rawData, nil
+	//return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
-func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]uint16, error) {
+func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]int16, error) {
 	startOffset, _ := getStartEndIFD0(aifd)
 
 	soiMarker, offset := common.ReadUint16(data, startOffset)

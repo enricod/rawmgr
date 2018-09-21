@@ -71,66 +71,16 @@ func TestSliceIndex(t *testing.T) {
 	assert.Equal(3, rowInSlice, "sono sulla riga 3 dello slice 3")
 }
 
-/*
-func TestGetPositionWithoutSlicing(t *testing.T) {
+func TestTypeConv(t *testing.T) {
 	assert := assert.New(t)
 
-	slices := rawSlice{2, 1728, 1888}
-	nrLines := 3516
+	var a int32
+	var b int32
 
-	// primo elemento, primo slice
-	sliceIndex, sliceRow, sliceCol, index := getPositionWithoutSlicing(0, slices, nrLines)
-	assert.Equal(0, sliceIndex, "")
-	assert.Equal(0, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
-	assert.Equal(0, index, "")
+	a = 10
+	b = -20
 
-	// slice #0, row #1, col 0
-	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(1728, slices, nrLines)
-	assert.Equal(0, sliceIndex, "")
-	assert.Equal(1, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
-
-	// slice #0, row #1, col 0
-	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(1730, slices, nrLines)
-	assert.Equal(0, sliceIndex, "")
-	assert.Equal(1, sliceRow, "")
-	assert.Equal(2, sliceCol, "")
-
-	// slice #1, row #0, col 0
-	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648, slices, nrLines)
-	assert.Equal(1, sliceIndex, "")
-	assert.Equal(0, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
-	assert.Equal(1728, index, "")
-
-	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648+1728, slices, nrLines)
-	assert.Equal(1, sliceIndex, "")
-	assert.Equal(1, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
-	assert.Equal(5344+1728, index, "hh")
-
-	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(6075648+2*1728+10, slices, nrLines)
-	assert.Equal(1, sliceIndex, "")
-	assert.Equal(2, sliceRow, "")
-	assert.Equal(10, sliceCol, "")
-	assert.Equal(5344*2+1728*sliceIndex+10, index, "")
-
-	// slice #2
-	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(2*6075648, slices, nrLines)
-	assert.Equal(2, sliceIndex, "")
-	assert.Equal(0, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
-	assert.Equal(sliceIndex*1728, index, "")
-
-	sliceIndex, sliceRow, sliceCol, index = getPositionWithoutSlicing(2*6075648+1728, slices, nrLines)
-	assert.Equal(2, sliceIndex, "")
-	assert.Equal(0, sliceRow, "")
-	assert.Equal(1728, sliceCol, "")
-
-	sliceIndex, sliceRow, sliceCol, _ = getPositionWithoutSlicing(2*6075648+1888, slices, nrLines)
-	assert.Equal(2, sliceIndex, "")
-	assert.Equal(1, sliceRow, "")
-	assert.Equal(0, sliceCol, "")
+	c := a + b
+	d := uint64(c)
+	assert.Equal(fmt.Sprintf("%b", c), fmt.Sprintf("%b", d), "")
 }
-*/
