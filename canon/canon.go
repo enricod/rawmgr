@@ -262,7 +262,7 @@ var getStartEndIFD1 = calcStartEnd(func(aifd IFDs) (int64, int64) {
 
 func saveJpeg(data []byte, aifd IFDs, filename string, calc calcStartEnd) {
 	start, end := calc(aifd)
-	log.Printf("Saving JPEG %d -> %d", start, end)
+	log.Printf("Saving JPEG %s", filename)
 	jpegData := data[start:end]
 	f, err := os.Create(filename)
 	_, err = f.Write(jpegData)
@@ -660,16 +660,19 @@ func cleanStream(data []byte) []byte {
 
 // sliceIndex, rowInSlice, colInSlice
 func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
-	pixels := height * int(rawslice.SliceSize)
-	sliceIndex := int(offset / pixels)
+	pixelsInSlice := height * int(rawslice.SliceSize)
+	sliceIndex := int(offset / pixelsInSlice)
+	if sliceIndex > int(rawslice.Count) {
+		sliceIndex = int(rawslice.Count)
+	}
 	var rowInSlice int
 	var colInSlice int
 	if sliceIndex == int(rawslice.Count) {
-		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.LastSliceSize)
-		colInSlice = (offset - sliceIndex*pixels) % int(rawslice.LastSliceSize)
+		rowInSlice = (offset - sliceIndex*pixelsInSlice) / int(rawslice.LastSliceSize)
+		colInSlice = (offset - sliceIndex*pixelsInSlice) % int(rawslice.LastSliceSize)
 	} else {
-		rowInSlice = (offset - sliceIndex*pixels) / int(rawslice.SliceSize)
-		colInSlice = (offset - sliceIndex*pixels) % int(rawslice.SliceSize)
+		rowInSlice = (offset - sliceIndex*pixelsInSlice) / int(rawslice.SliceSize)
+		colInSlice = (offset - sliceIndex*pixelsInSlice) % int(rawslice.SliceSize)
 	}
 	return sliceIndex, rowInSlice, colInSlice
 }
@@ -679,8 +682,8 @@ func unslice(data []int16, rawslice rawSlice, height int) []int16 {
 	for i := 0; i < len(data); i++ {
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
-		if i == 6075648 || i2 == 3456 {
-			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> %d", sliceIndex, rowInSlice, colInSlice, i, i2)
+		if i == 18789503 || i2 == 1728 { //|| i2 == 1728*2 || i2 == 1728*2+1888 {
+			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> i2=%d", sliceIndex, rowInSlice, colInSlice, i, i2)
 		}
 		result[i2] = data[i]
 	}
@@ -798,8 +801,8 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	if len(rawData) != int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines)) {
 		log.Panic(fmt.Sprintf("dimensione immagine non corrisponde con dati caricati, %d vs %d", len(rawData), int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines))))
 	}
-	return rawData, nil
-	//return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
+	//return rawData, nil
+	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
 func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]int16, error) {
@@ -826,11 +829,14 @@ func ProcessCR2(data []byte) {
 	log.Printf("Header %v\n", canonHeader)
 	ifds := readIfds(data, &canonHeader)
 
-	if *common.Verbose {
+	if *common.ShowInfo {
 		dumpIfds(ifds)
 	}
-	saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
-	saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
+
+	if *common.ExtractJpegs {
+		saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
+		saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
+	}
 
 	rawData, _ := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
 

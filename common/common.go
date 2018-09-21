@@ -12,6 +12,10 @@ import (
 // Verbose true if you want more output
 var Verbose *bool
 
+var ShowInfo *bool
+
+var ExtractJpegs *bool
+
 // LittleEndian value
 const LittleEndian = 0x4949
 

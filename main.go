@@ -88,6 +88,8 @@ func main() {
 	rawfile := flag.String("f", defaultFileName, "raw file")
 	common.Verbose = flag.Bool("v", false, "verbose")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+	common.ShowInfo = flag.Bool("i", false, "show image info")
+	common.ExtractJpegs = flag.Bool("j", false, "extract jpegs")
 
 	flag.Parse()
 	log.Println("reading file " + *rawfile)
