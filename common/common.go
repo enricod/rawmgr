@@ -16,6 +16,11 @@ var ShowInfo *bool
 
 var ExtractJpegs *bool
 
+type ImgMetadata struct {
+	ImageWidth  int
+	ImageHeight int
+}
+
 // LittleEndian value
 const LittleEndian = 0x4949
 
