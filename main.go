@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/png"
 	"io/ioutil"
 	"runtime/pprof"
 
@@ -69,7 +70,7 @@ func identify(inputFile *os.File) imageInfo {
 
 		data, err := ioutil.ReadFile(inputFile.Name())
 		check(err)
-		canon.ProcessCR2(data)
+		canon.ProcessCR2(data, "PPP")
 
 	}
 
@@ -84,15 +85,22 @@ func check(e error) {
 
 func main() {
 
-	defaultFileName := "images/Canon/Canon_001.CR2"
-	rawfile := flag.String("f", defaultFileName, "raw file")
+	argsWithoutProg := os.Args[1:]
+	log.Printf("%v", argsWithoutProg)
+	if len(argsWithoutProg) == 0 {
+		fmt.Printf("input file not specified \n")
+		return
+	}
+
+	//defaultFileName := "images/Canon/Canon_001.CR2"
+	rawfile := argsWithoutProg[len(argsWithoutProg)-1]
 	common.Verbose = flag.Bool("v", false, "verbose")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 	common.ShowInfo = flag.Bool("i", false, "show image info")
 	common.ExtractJpegs = flag.Bool("j", false, "extract jpegs")
 
 	flag.Parse()
-	log.Println("reading file " + *rawfile)
+	log.Println("reading file " + rawfile)
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -111,7 +119,18 @@ func main() {
 
 		log.Printf("Make: %s\n", imageInfo.make)
 	*/
-	data, err := ioutil.ReadFile(*rawfile)
+	data, err := ioutil.ReadFile(rawfile)
 	check(err)
-	canon.ProcessCR2(data)
+	imageRGBA := canon.ProcessCR2(data, rawfile)
+
+	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".png", 1))
+	if err != nil {
+		// Handle error
+	}
+
+	png.Encode(outputFile, imageRGBA)
+
+	// Don't forget to close files
+	outputFile.Close()
+
 }

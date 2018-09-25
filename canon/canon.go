@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"log"
 	"os"
+	"strings"
 
 	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
@@ -825,7 +825,7 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]in
 }
 
 // ProcessCR2 start CR2 files
-func ProcessCR2(data []byte) {
+func ProcessCR2(data []byte, rawfile string) *image.RGBA {
 	canonHeader, err := readHeader(data)
 	check(err)
 	log.Printf("Header %v\n", canonHeader)
@@ -836,8 +836,8 @@ func ProcessCR2(data []byte) {
 	}
 
 	if *common.ExtractJpegs {
-		saveJpeg(data, ifds[0], "ifd_0.jpeg", getStartEndIFD0)
-		saveJpeg(data, ifds[1], "ifd_1.jpeg", getStartEndIFD1)
+		saveJpeg(data, ifds[0], strings.Replace(rawfile, ".CR2", "_0.jpeg", 1), getStartEndIFD0)
+		saveJpeg(data, ifds[1], strings.Replace(rawfile, ".CR2", "_1.jpeg", 1), getStartEndIFD1)
 	}
 
 	rawData, _ := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
@@ -851,31 +851,5 @@ func ProcessCR2(data []byte) {
 		myImage.SetRGBA(i%width, i/width, color.RGBA{uint8(v), 0, 0, 255})
 	}
 
-	outputFile, err := os.Create("images/Canon/Canon_001.png")
-	if err != nil {
-		// Handle error
-	}
-
-	// Encode takes a writer interface and an image interface
-	// We pass it the File and the RGBA
-	png.Encode(outputFile, myImage)
-
-	// Don't forget to close files
-	outputFile.Close()
-	/*
-		f, err := os.Create("images/Canon/Canon_001.bin")
-		log.Printf("saving in %s", f.Name())
-
-		start := time.Now()
-		// bufferedWriter := bufio.NewWriter(f)
-		for _, d := range rawData {
-			binary.Write(f, binary.LittleEndian, d)
-		}
-
-		elapsed := time.Since(start)
-		log.Printf("saved. %s", elapsed)
-		defer f.Close()
-
-		check(err)
-	*/
+	return myImage
 }

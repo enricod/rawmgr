@@ -32,7 +32,5 @@
 *.app
 rawmgr
 
-images/*.RAF
-images/*.CR2
-images/*.ARW
-*.jpeg
+images/
+
