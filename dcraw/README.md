@@ -16,7 +16,7 @@ gcc -g -o dcraw  dcraw.c -lm -DNODEPS
 
 # DEBUG
 
-gdb --args dcraw DSCF2483.RAF
+gdb --args dcraw ../images/Canon/Canon_001.CR2
 
 b <riga>
 run

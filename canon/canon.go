@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"log"
 	"os"
-	"time"
 
 	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
@@ -840,19 +842,40 @@ func ProcessCR2(data []byte) {
 
 	rawData, _ := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
 
-	f, err := os.Create("images/Canon/Canon_001.bin")
-	log.Printf("saving in %s", f.Name())
-
-	start := time.Now()
-	// bufferedWriter := bufio.NewWriter(f)
-	for _, d := range rawData {
-		binary.Write(f, binary.LittleEndian, d)
+	width := 5344
+	myImage := image.NewRGBA(image.Rect(0, 0, 5344, 3516))
+	for i, b := range rawData {
+		//myImage.SetGray16(i%5344, i/3516, color.Gray16{uint16(b)})
+		v := int(b)
+		// myImage.SetRGBA(i%width, i/width, color.RGBA{uint8((float64(v)/65536 + 0.5) * 255), 0, 0, 255})
+		myImage.SetRGBA(i%width, i/width, color.RGBA{uint8(v), 0, 0, 255})
 	}
 
-	elapsed := time.Since(start)
-	log.Printf("saved. %s", elapsed)
-	defer f.Close()
+	outputFile, err := os.Create("images/Canon/Canon_001.png")
+	if err != nil {
+		// Handle error
+	}
 
-	check(err)
+	// Encode takes a writer interface and an image interface
+	// We pass it the File and the RGBA
+	png.Encode(outputFile, myImage)
 
+	// Don't forget to close files
+	outputFile.Close()
+	/*
+		f, err := os.Create("images/Canon/Canon_001.bin")
+		log.Printf("saving in %s", f.Name())
+
+		start := time.Now()
+		// bufferedWriter := bufio.NewWriter(f)
+		for _, d := range rawData {
+			binary.Write(f, binary.LittleEndian, d)
+		}
+
+		elapsed := time.Since(start)
+		log.Printf("saved. %s", elapsed)
+		defer f.Close()
+
+		check(err)
+	*/
 }
