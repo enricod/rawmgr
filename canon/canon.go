@@ -653,7 +653,9 @@ func findHuffCodeV3(data []byte, bitsOffset int, bitsLength int, huffMappings ma
 func cleanStream(data []byte) []byte {
 	result := []byte{}
 	for i, b := range data {
-		if !(i > 0 && b == 0x00 && data[i-1] == 0xff) {
+		if i > 0 && b == 0x00 && data[i-1] == 0xff {
+			continue
+		} else {
 			result = append(result, b)
 		}
 	}
@@ -807,12 +809,12 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
-func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]int16, error) {
+func parseRaw(data []byte, canonHeader Header, aifd IFDs) ([]int16, common.ImgMetadata, error) {
 	startOffset, _ := getStartEndIFD0(aifd)
 
 	soiMarker, offset := common.ReadUint16(data, startOffset)
 	if soiMarker != 0xffd8 {
-		return nil, fmt.Errorf("SOI Marker not valid  %d", soiMarker)
+		return nil, common.ImgMetadata{}, fmt.Errorf("SOI Marker not valid  %d", soiMarker)
 	}
 
 	loselessJPG, loselessJPGOffset, err := parseDHTHeader(data, offset)
@@ -820,8 +822,8 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs, filename string) ([]in
 	//log.Printf("loselessJPG %v", loselessJPG)
 
 	rawData, err := scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
-
-	return rawData, err
+	rawSlice, _ := getRawSlice(aifd)
+	return rawData, common.ImgMetadata{ImageWidth: rawSlice.imageWidth(), ImageHeight: int(loselessJPG.SOF3Header.NrLines)}, err
 }
 
 // ProcessCR2 start CR2 files
@@ -840,15 +842,12 @@ func ProcessCR2(data []byte, rawfile string) *image.RGBA {
 		saveJpeg(data, ifds[1], strings.Replace(rawfile, ".CR2", "_1.jpeg", 1), getStartEndIFD1)
 	}
 
-	rawData, _ := parseRaw(data, canonHeader, ifds[3], "ifd_3.jpeg")
+	rawData, imgMetadata, _ := parseRaw(data, canonHeader, ifds[3])
 
-	width := 5344
-	myImage := image.NewRGBA(image.Rect(0, 0, 5344, 3516))
+	myImage := image.NewRGBA(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
 	for i, b := range rawData {
-		//myImage.SetGray16(i%5344, i/3516, color.Gray16{uint16(b)})
 		v := int(b)
-		// myImage.SetRGBA(i%width, i/width, color.RGBA{uint8((float64(v)/65536 + 0.5) * 255), 0, 0, 255})
-		myImage.SetRGBA(i%width, i/width, color.RGBA{uint8(v), 0, 0, 255})
+		myImage.SetRGBA(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.RGBA{uint8(v), uint8(v), 0, 255})
 	}
 
 	return myImage
