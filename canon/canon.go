@@ -97,10 +97,10 @@ type DHTHeader struct {
 
 // LosslessJPG data for lossless image
 type LosslessJPG struct {
-	DHTHeader       DHTHeader
-	SOF3Header      SOF3Header
-	SOSHeader       SOSHeader
-	HuffmanCodes    [][]common.HuffMapping // da eliminare
+	DHTHeader  DHTHeader
+	SOF3Header SOF3Header
+	SOSHeader  SOSHeader
+	//HuffmanCodes    [][]common.HuffMapping // da eliminare
 	HuffmanCodesMap []map[common.HuffMappingKey]common.HuffMapping
 }
 
@@ -388,7 +388,7 @@ func parseSOF3Header(data []byte, offset int64) (SOF3Header, int64, error) {
 	sof3Header := SOF3Header{}
 	marker, offset2 := common.ReadUint16(data, offset)
 
-	log.Printf("SOF3 offset=%d, marker=%d", offset, marker)
+	//log.Printf("SOF3 offset=%d, marker=%d", offset, marker)
 	if marker != 0xffc3 {
 		_, err := fmt.Printf("SOF3 header invalid, expected %d, found %d", 0xffc3, marker)
 		return sof3Header, offset2, err
@@ -510,8 +510,8 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	huffBytes := data[offset : offset+int64(length-2)]
 	huffMappings := common.DecodeHuffTree(huffBytes)
 
-	//scriviHuffCodes(huffMappings[0])
-	//scriviHuffCodes(huffMappings[1])
+	scriviHuffCodes(huffMappings[0])
+	scriviHuffCodes(huffMappings[1])
 
 	huffmanCodesMap := []map[common.HuffMappingKey]common.HuffMapping{}
 	for _, hm := range huffMappings {
@@ -530,7 +530,6 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 
 	losslessJPG := LosslessJPG{DHTHeader: dhtHeader, SOF3Header: sof3Header,
 		SOSHeader:       sosHeader,
-		HuffmanCodes:    huffMappings,
 		HuffmanCodesMap: huffmanCodesMap,
 	}
 
@@ -693,6 +692,7 @@ func unslice(data []int16, rawslice rawSlice, height int) []int16 {
 	}
 	return result
 }
+
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]int16, error) {
 
 	cleanedData := cleanStream(data[offset:])
@@ -700,7 +700,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	previousValues := []int16{}
 	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
-		previousValues = append(previousValues, int16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision-1))))
+		previousValues = append(previousValues, int16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision)-1)))
 	}
 	// log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
@@ -777,16 +777,10 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 			val4 = int16(previousValues[componentNr]) - int16(val3)
 		}
 
-		// costruiamo byte per immagine finale
-		/*
-			if j < cap(rawData) {
-				_, _, _, j2 := getPositionWithoutSlicing(j, rawSlice, int(loselessJPG.SOF3Header.NrLines))
-
-				rawData[j2] = val4
-			}
-		*/
 		if j < cap(rawData) {
 			rawData[j] = val4
+		} else {
+			log.Printf("bitsoffset=%d, bytesOffset=%d", bitsOffset, bitsOffset/8)
 		}
 
 		previousValues[componentNr] = val4
@@ -830,7 +824,7 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs) ([]int16, common.ImgMe
 func ProcessCR2(data []byte, rawfile string) *image.RGBA {
 	canonHeader, err := readHeader(data)
 	check(err)
-	log.Printf("Header %v\n", canonHeader)
+	// log.Printf("Header %v\n", canonHeader)
 	ifds := readIfds(data, &canonHeader)
 
 	if *common.ShowInfo {

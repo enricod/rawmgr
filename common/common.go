@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"math"
 	"os"
 )
@@ -229,11 +228,10 @@ func DecodeHuffTree(data []byte) [][]HuffMapping {
 	huffIems0, offset := GetHuffItems(data, 5)
 	result = append(result, decodeHuff(huffIems0))
 
-	// fixme
+	//
 	huffItems1, _ := GetHuffItems(data, offset+1)
 	result = append(result, decodeHuff(huffItems1))
 
-	log.Printf("%v", huffIems0)
 	return result
 }
 
