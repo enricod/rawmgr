@@ -686,9 +686,9 @@ func unslice(data []int16, rawslice rawSlice, height int) []int16 {
 	for i := 0; i < len(data); i++ {
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
-		if i == 18789503 || i2 == 1728 { //|| i2 == 1728*2 || i2 == 1728*2+1888 {
-			log.Printf("sliceIndex=%d, rowInSlice=%d, colInSlice=%d, i=%d -> i2=%d", sliceIndex, rowInSlice, colInSlice, i, i2)
-		}
+
+		//log.Printf("RAW[%d, %d]=%d", sliceIndex, rowInSlice, colInSlice, i, i2)
+		fmt.Printf("RAW[%d]=%d  i=%d\n", i2, data[i], i)
 		result[i2] = data[i]
 	}
 	return result
