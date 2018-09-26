@@ -693,15 +693,22 @@ func unslice(data []int16, rawslice rawSlice, height int) []int16 {
 	return result
 }
 
+func prevValue(data []int16, j int, rawslice rawSlice, componentsNr int, samplePrecision int) int16 {
+	if j < componentsNr {
+		return int16(common.Pow2(samplePrecision - 1))
+	} else if j%rawslice.imageWidth() < componentsNr {
+		j2 := j - rawslice.imageWidth()
+		return data[j2]
+	} else {
+		return data[j-componentsNr]
+	}
+}
+
 func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]int16, error) {
 
 	cleanedData := cleanStream(data[offset:])
 	// log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
 
-	previousValues := []int16{}
-	for i := 0; i < int(loselessJPG.SOF3Header.NrImageComponentsPerFrame); i++ {
-		previousValues = append(previousValues, int16(common.Pow2(int(loselessJPG.SOF3Header.SamplePrecision)-1)))
-	}
 	// log.Printf("scanRawData | offset=%d", offset)
 	rawSlice, err := getRawSlice(aifd)
 	if err != nil {
@@ -772,18 +779,16 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		// questo forse più veloce
 		var val4 int16
 		if val3 == val2 {
-			val4 = int16(previousValues[componentNr]) + int16(val3)
+			val4 = int16(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) + int16(val3)
 		} else {
-			val4 = int16(previousValues[componentNr]) - int16(val3)
+			val4 = int16(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) - int16(val3)
 		}
 
 		if j < cap(rawData) {
 			rawData[j] = val4
-		} else {
-			log.Printf("bitsoffset=%d, bytesOffset=%d", bitsOffset, bitsOffset/8)
 		}
 
-		previousValues[componentNr] = val4
+		//previousValues[componentNr] = val4
 
 		// prepare for next iteration
 		componentNr++
