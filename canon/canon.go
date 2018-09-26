@@ -680,8 +680,8 @@ func sliceIndex(offset int, rawslice rawSlice, height int) (int, int, int) {
 	return sliceIndex, rowInSlice, colInSlice
 }
 
-func unslice(data []int16, rawslice rawSlice, height int) []int16 {
-	var result = make([]int16, len(data))
+func unslice(data []uint8, rawslice rawSlice, height int) []uint8 {
+	var result = make([]uint8, len(data))
 	for i := 0; i < len(data); i++ {
 		sliceIndex, rowInSlice, colInSlice := sliceIndex(i, rawslice, height)
 		i2 := rowInSlice*rawslice.imageWidth() + sliceIndex*int(rawslice.SliceSize) + colInSlice
@@ -692,9 +692,9 @@ func unslice(data []int16, rawslice rawSlice, height int) []int16 {
 	return result
 }
 
-func prevValue(data []int16, j int, rawslice rawSlice, componentsNr int, samplePrecision int) int16 {
+func prevValue(data []uint8, j int, rawslice rawSlice, componentsNr int, samplePrecision int) uint8 {
 	if j < componentsNr {
-		return int16(common.Pow2(samplePrecision - 1))
+		return uint8(common.Pow2(samplePrecision - 1))
 	} else if j%rawslice.imageWidth() < componentsNr {
 		j2 := j - rawslice.imageWidth()
 		return data[j2]
@@ -703,7 +703,7 @@ func prevValue(data []int16, j int, rawslice rawSlice, componentsNr int, sampleP
 	}
 }
 
-func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]int16, error) {
+func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader Header, aifd IFDs) ([]uint8, error) {
 
 	cleanedData := cleanStream(data[offset:])
 	// log.Printf("size %d, cleaned %d, removed %d", len(data[offset:]), len(cleanedData), len(data[offset:])-len(cleanedData))
@@ -722,17 +722,14 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 
 	componentNr := 0
 	pixelsCount := rawSlice.imageWidth() * int(loselessJPG.SOF3Header.NrLines)
-	rawData := make([]int16, pixelsCount)
+	rawData := make([]uint8, pixelsCount)
 	// log.Printf("allocata matrice di %d elementi", cap(rawData))
 	bitsOffset := 0
 
 	bitreader := bitstream.NewReader(bytes.NewReader(cleanedData))
 
 	//huffDifferences := common.HuffDifferences()
-	// PROVVISORIO
-	//for j := 0; j < 16; j++ {
 	running := true
-	//bitsCount := 8 * len(cleanedData)
 	j := 0
 	for running {
 		//log.Printf("Step %d , bitsOffset = %d / %d, %f %%", j, bitsOffset, bitsCount, 100.0*float64(bitsOffset)/float64(bitsCount))
@@ -776,18 +773,16 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		*/
 
 		// questo forse più veloce
-		var val4 int16
+		var val4 uint8
 		if val3 == val2 {
-			val4 = int16(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) + int16(val3)
+			val4 = uint8(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) + uint8(val3)
 		} else {
-			val4 = int16(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) - int16(val3)
+			val4 = uint8(prevValue(rawData, j, rawSlice, int(loselessJPG.SOF3Header.NrImageComponentsPerFrame), int(loselessJPG.SOF3Header.SamplePrecision))) - uint8(val3)
 		}
 
 		if j < cap(rawData) {
 			rawData[j] = val4
 		}
-
-		//previousValues[componentNr] = val4
 
 		// prepare for next iteration
 		componentNr++
@@ -807,7 +802,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 	return unslice(rawData, rawSlice, int(loselessJPG.SOF3Header.NrLines)), nil
 }
 
-func parseRaw(data []byte, canonHeader Header, aifd IFDs) ([]int16, common.ImgMetadata, error) {
+func parseRaw(data []byte, canonHeader Header, aifd IFDs) ([]uint8, common.ImgMetadata, error) {
 	startOffset, _ := getStartEndIFD0(aifd)
 
 	soiMarker, offset := common.ReadUint16(data, startOffset)
@@ -822,6 +817,10 @@ func parseRaw(data []byte, canonHeader Header, aifd IFDs) ([]int16, common.ImgMe
 	rawData, err := scanRawData(data, loselessJPG, loselessJPGOffset, canonHeader, aifd)
 	rawSlice, _ := getRawSlice(aifd)
 	return rawData, common.ImgMetadata{ImageWidth: rawSlice.imageWidth(), ImageHeight: int(loselessJPG.SOF3Header.NrLines)}, err
+}
+
+func rc(j int, width int, length int) (int, int) {
+	return j / width, j % width
 }
 
 // ProcessCR2 start CR2 files
@@ -844,8 +843,15 @@ func ProcessCR2(data []byte, rawfile string) *image.RGBA {
 
 	myImage := image.NewRGBA(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
 	for i, b := range rawData {
-		v := int(b)
-		myImage.SetRGBA(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.RGBA{uint8(v), uint8(v), 0, 255})
+
+		row, col := rc(i, imgMetadata.ImageWidth, imgMetadata.ImageHeight)
+		var g uint8
+		if row%2 == 0 && col%2 == 1 {
+			g = b
+		} else if row%2 == 1 && col%2 == 0 {
+			g = b
+		}
+		myImage.SetRGBA(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.RGBA{0, g, 0, 255})
 	}
 
 	return myImage
