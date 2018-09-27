@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"log"
 	"os"
 	"strings"
@@ -839,20 +838,33 @@ func ProcessCR2(data []byte, rawfile string) *image.RGBA {
 		saveJpeg(data, ifds[1], strings.Replace(rawfile, ".CR2", "_1.jpeg", 1), getStartEndIFD1)
 	}
 
-	rawData, imgMetadata, _ := parseRaw(data, canonHeader, ifds[3])
+	rawData, _, _ := parseRaw(data, canonHeader, ifds[3])
+	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".bin", 1))
+	for _, b := range rawData {
 
-	myImage := image.NewRGBA(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
-	for i, b := range rawData {
-
-		row, col := rc(i, imgMetadata.ImageWidth, imgMetadata.ImageHeight)
-		var g uint8
-		if row%2 == 0 && col%2 == 1 {
-			g = b
-		} else if row%2 == 1 && col%2 == 0 {
-			g = b
+		if err != nil {
+			// Handle error
 		}
-		myImage.SetRGBA(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.RGBA{0, g, 0, 255})
+		bytes := make([]byte, 2)
+		binary.LittleEndian.PutUint16(bytes, uint16(b))
+		outputFile.Write(bytes)
 	}
+	outputFile.Close()
+	return nil
+	/*
+		myImage := image.NewRGBA(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
+		for i, b := range rawData {
 
-	return myImage
+			row, col := rc(i, imgMetadata.ImageWidth, imgMetadata.ImageHeight)
+			var g uint8
+			if row%2 == 0 && col%2 == 1 {
+				g = b
+			} else if row%2 == 1 && col%2 == 0 {
+				g = b
+			}
+			myImage.SetRGBA(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.RGBA{0, g, 0, 255})
+		}
+
+		return myImage
+	*/
 }
