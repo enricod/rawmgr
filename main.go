@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/png"
 	"io/ioutil"
 	"runtime/pprof"
 
@@ -121,16 +122,17 @@ func main() {
 
 	data, err := ioutil.ReadFile(rawfile)
 	check(err)
-	canon.ProcessCR2(data, rawfile)
-	/*
-		outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".png", 1))
-		if err != nil {
-			// Handle error
-		}
 
-		png.Encode(outputFile, imageRGBA)
+	imageRGBA := canon.ProcessCR2(data, rawfile)
 
-		// Don't forget to close files
-		outputFile.Close()
-	*/
+	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".png", 1))
+	if err != nil {
+		// Handle error
+	}
+
+	png.Encode(outputFile, imageRGBA)
+
+	// Don't forget to close files
+	outputFile.Close()
+	log.Printf("wrote %s", outputFile.Name())
 }
