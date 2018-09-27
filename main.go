@@ -121,6 +121,7 @@ func main() {
 	*/
 	data, err := ioutil.ReadFile(rawfile)
 	check(err)
+
 	imageRGBA := canon.ProcessCR2(data, rawfile)
 
 	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".png", 1))

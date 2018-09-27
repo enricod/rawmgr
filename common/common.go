@@ -187,9 +187,9 @@ type HuffMappingKey struct {
 
 // HuffMapping mapping between a bitq sequence and a byte, used in Huffman decoding
 type HuffMapping struct {
-	BitCount int
+	BitCount int // nr di bit
 	Value    byte
-	Code     uint64
+	Code     uint64 // serve 64?
 }
 
 func removeFromNextLine(lines [][]uint64, row int, howmany int) {
