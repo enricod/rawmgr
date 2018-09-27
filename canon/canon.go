@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	bitstream "github.com/dgryski/go-bitstream"
 	"github.com/enricod/rawmgr/common"
@@ -510,8 +511,8 @@ func parseDHTHeader(data []byte, offset int64) (LosslessJPG, int64, error) {
 	huffBytes := data[offset : offset+int64(length-2)]
 	huffMappings := common.DecodeHuffTree(huffBytes)
 
-	scriviHuffCodes(huffMappings[0])
-	scriviHuffCodes(huffMappings[1])
+	//scriviHuffCodes(huffMappings[0])
+	//scriviHuffCodes(huffMappings[1])
 
 	huffmanCodesMap := []map[common.HuffMappingKey]common.HuffMapping{}
 	for _, hm := range huffMappings {
@@ -794,7 +795,7 @@ func scanRawData(data []byte, loselessJPG LosslessJPG, offset int64, canonHeader
 		bitsOffset = bitsOffset + huffCode.BitCount + int(huffCode.Value)
 		j++
 	}
-	log.Printf("rawData length = %d", len(rawData))
+	//log.Printf("rawData length = %d", len(rawData))
 
 	if len(rawData) != int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines)) {
 		log.Panic(fmt.Sprintf("dimensione immagine non corrisponde con dati caricati, %d vs %d", len(rawData), int(rawSlice.imageWidth()*int(loselessJPG.SOF3Header.NrLines))))
@@ -829,7 +830,11 @@ func ProcessCR2(data []byte, rawfile string) *image.Gray16 {
 	canonHeader, err := readHeader(data)
 	check(err)
 	// log.Printf("Header %v\n", canonHeader)
+
+	t0 := time.Now()
 	ifds := readIfds(data, &canonHeader)
+
+	log.Printf("Parsing IFDs took %s", time.Since(t0))
 
 	if *common.ShowInfo {
 		dumpIfds(ifds)
@@ -840,24 +845,27 @@ func ProcessCR2(data []byte, rawfile string) *image.Gray16 {
 		saveJpeg(data, ifds[1], strings.Replace(rawfile, ".CR2", "_1.jpeg", 1), getStartEndIFD1)
 	}
 
+	t1 := time.Now()
 	rawData, imgMetadata, _ := parseRaw(data, canonHeader, ifds[3])
+	log.Printf("RAW parsing took %s", time.Since(t1))
+
+	t2 := time.Now()
 	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".bin", 1))
 	for _, b := range rawData {
 		bs := make([]byte, 2)
 		binary.LittleEndian.PutUint16(bs, b)
 		outputFile.Write(bs)
 	}
-	log.Printf("wrote %s", outputFile.Name())
+	log.Printf("saving in %s took %s", outputFile.Name(), time.Since(t2))
+
 	outputFile.Close()
 
+	t3 := time.Now()
 	myImage := image.NewGray16(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
 	for i, b := range rawData {
-		if i < 4 {
-			fmt.Printf("%d", b)
-		}
 		myImage.SetGray16(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.Gray16{Y: 255 * b})
 	}
-
+	log.Printf("creation Gray16 image took %s", time.Since(t3))
 	return myImage
 
 	//	return nil
