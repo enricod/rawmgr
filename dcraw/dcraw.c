@@ -1069,7 +1069,7 @@ void CLASS lossless_jpeg_load_raw()
                 col += (row--,raw_width);
             if ((unsigned) row < raw_height) {
                 RAW(row,col) = val;
-                printf("RAW[%d]=%d     row=%d, col=%d, jrow=%d, jcol=%d\n", row*raw_width + (col), val, row, col, jrow, jcol );
+                //printf("RAW[%d]=%d     row=%d, col=%d, jrow=%d, jcol=%d\n", row*raw_width + (col), val, row, col, jrow, jcol );
             }
             if (++col >= raw_width)
                 col = (row++,0);

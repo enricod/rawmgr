@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"log"
 	"os"
 	"strings"
@@ -840,8 +839,8 @@ func ProcessCR2(data []byte, rawfile string) *image.Gray16 {
 		saveJpeg(data, ifds[1], strings.Replace(rawfile, ".CR2", "_1.jpeg", 1), getStartEndIFD1)
 	}
 
-	rawData, imgMetadata, _ := parseRaw(data, canonHeader, ifds[3])
-	outputFile, err := os.Create(strings.Replace(rawfile, ".CR2", ".bin", 1))
+	rawData, _, _ := parseRaw(data, canonHeader, ifds[3])
+	outputFile, err := os.Create(rawfile + ".bin") //strings.Replace(rawfile, ".CR2", ".bin", 1))
 	for _, b := range rawData {
 		bs := make([]byte, 2)
 		binary.LittleEndian.PutUint16(bs, b)
@@ -849,16 +848,16 @@ func ProcessCR2(data []byte, rawfile string) *image.Gray16 {
 	}
 
 	outputFile.Close()
-
-	myImage := image.NewGray16(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
-	for i, b := range rawData {
-		if i < 4 {
-			fmt.Printf("%d", b)
+	/*
+		myImage := image.NewGray16(image.Rect(0, 0, imgMetadata.ImageWidth, imgMetadata.ImageHeight))
+		for i, b := range rawData {
+			if i < 4 {
+				fmt.Printf("%d", b)
+			}
+			myImage.SetGray16(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.Gray16{Y: 255 * b})
 		}
-		myImage.SetGray16(i%imgMetadata.ImageWidth, i/imgMetadata.ImageWidth, color.Gray16{Y: 255 * b})
-	}
 
-	return myImage
-
-	//	return nil
+		return myImage
+	*/
+	return nil
 }
